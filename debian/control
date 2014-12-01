@@ -7,9 +7,8 @@ Build-Depends:
 	autotools-dev,
 	libgnutls28-dev,
 	libreadline-dev,
-	pkg-config
-#libopts25-dev,
-#autogen,
+	pkg-config,
+	autogen
 #protobuf-c-compiler
 Standards-Version: 3.9.3
 Homepage: http://www.infradead.org/ocserv/
