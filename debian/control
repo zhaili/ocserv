@@ -1,0 +1,30 @@
+Source: ocserv
+Section: misc
+Priority: extra
+Maintainer: unknown <anonymous@dev64.stacklet.com>
+Build-Depends: 
+	debhelper (>= 8.0.0), 
+	autotools-dev,
+	libgnutls28-dev,
+	libreadline-dev,
+	pkg-config
+#libopts25-dev,
+#autogen,
+#protobuf-c-compiler
+Standards-Version: 3.9.3
+Homepage: http://www.infradead.org/ocserv/
+#Vcs-Git: git://git.debian.org/collab-maint/ocserv.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/ocserv.git;a=summary
+
+Package: ocserv
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: OpenConnect VPN Server
+ OpenConnect server (ocserv) is an SSL VPN server. Its purpose is to be
+ a secure, small, fast and configurable VPN server. It implements the
+ OpenConnect SSL VPN protocol, and has also (currently experimental)
+ compatibility with clients using the AnyConnect SSL VPN protocol. The
+ OpenConnect protocol provides a dual TCP/UDP VPN channel, and uses the
+ standard IETF security protocols to secure it. The server is
+ implemented primarily for the GNU/Linux platform but its code is
+ designed to be portable to other UNIX variants as well.
