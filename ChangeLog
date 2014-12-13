@@ -1,3 +1,75 @@
+2014-12-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/unix-test: test-unix: correct copy of file
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS, configure.ac: bumped version
+
+2014-12-02  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-misc.c: call disconnect script only if the user was on
+	connected state
+
+2014-12-02  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-user.c: separate log messages between up and down script
+
+2014-12-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2014-12-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/full-test, tests/unix-test: tests: satisfy latest docker's
+	restrictions
+
+2014-12-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/full-test, tests/unix-test: tests: try to check stats only
+	when file is present
+
+2014-12-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-user.c: run the down script even if the client's IP
+	address has been re-used
+
+2014-12-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod-ban.c, src/sec-mod-db.c,
+	src/sec-mod.c, src/sec-mod.h: sec-mod: made logging consistent with
+	the main server
+
+2014-11-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2014-11-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def, src/vpn.h,
+	src/worker-vpn.c: Notify the client that the server may have a
+	dynamic DNS address That is send "X-CSTP-DynDNS: true", in CSTP headers if the server is
+	configured as having a dynamic DNS address.
+
+2014-11-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac, src/auth/plain.c, src/ocpasswd.c: use define
+	_XOPEN_SOURCE to get crypt()
+
+2014-11-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: sec-mod: print whether a certificate is
+	present
+
+2014-11-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config: enhanced sample.config
+
+2014-11-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ocserv-args.def: forward to gnutls manual for priority string
+	documentation
+
 2014-11-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* NEWS: released 0.8.8

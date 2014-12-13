@@ -126,6 +126,11 @@ max-same-clients = 2
 # hostname.
 #listen-host = [IP|HOSTNAME]
 
+# When the server has a dynamic DNS address (that may change),
+# should set that to true to ask the client to resolve again on
+# reconnects.
+#listen-host-is-dyndns = true
+
 # TCP and UDP port number
 tcp-port = 3333
 udp-port = 3333
@@ -216,7 +221,9 @@ server-key = /path/to/key.pem
 # that protocol.
 tls-priorities = "NORMAL:%SERVER_PRECEDENCE:%COMPAT:-VERS-SSL3.0:-ARCFOUR-128"
 
-# To enforce perfect forward secrecy (PFS) on the main channel.
+# More combinations in priority strings are available, check
+# http://gnutls.org/manual/html_node/Priority-Strings.html
+# E.g., to enforce perfect forward secrecy (PFS) on the main channel:
 #tls-priorities = "NORMAL:%SERVER_PRECEDENCE:%COMPAT:-RSA:-VERS-SSL3.0:-ARCFOUR-128"
 
 # The time (in seconds) that a client is allowed to stay connected prior
