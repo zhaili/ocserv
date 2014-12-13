@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.8.8], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.8.9], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -190,7 +190,8 @@ fi
 
 gl_INIT
 
-AC_LIB_HAVE_LINKFLAGS(crypt,, [#include <unistd.h>], [crypt(0,0);])
+AC_LIB_HAVE_LINKFLAGS(crypt,, [#define _XOPEN_SOURCE
+#include <unistd.h>], [crypt(0,0);])
 
 AC_ARG_WITH(utmp,
   AS_HELP_STRING([--without-utmp], [do not use libutil for utmp support]),
