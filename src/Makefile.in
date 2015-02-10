@@ -217,7 +217,7 @@ am__ocserv_SOURCES_DIST = main.c main-auth.c worker-vpn.c \
 	sup-config/file.h sup-config/radius.c sup-config/radius.h \
 	worker-bandwidth.c worker-bandwidth.h ctl.h main-ctl.h \
 	vasprintf.c vasprintf.h lzs.c lzs.h proc-search.c \
-	proc-search.h str.c str.h gettime.h \
+	proc-search.h http-heads.h str.c str.h gettime.h \
 	ccan/build_assert/build_assert.h ccan/check_type/check_type.h \
 	ccan/container_of/container_of.h ccan/hash/hash.c \
 	ccan/hash/hash.h ccan/htable/htable.c ccan/htable/htable.h \
@@ -1096,7 +1096,7 @@ ocserv_SOURCES = main.c main-auth.c worker-vpn.c worker-auth.c \
 	sup-config/file.c sup-config/file.h sup-config/radius.c \
 	sup-config/radius.h worker-bandwidth.c worker-bandwidth.h \
 	ctl.h main-ctl.h vasprintf.c vasprintf.h lzs.c lzs.h \
-	proc-search.c proc-search.h str.c str.h gettime.h \
+	proc-search.c proc-search.h http-heads.h str.c str.h gettime.h \
 	$(CCAN_SOURCES) $(HTTP_PARSER_SOURCES) $(PROTOBUF_SOURCES) \
 	ipc.pb-c.h ipc.pb-c.c ctl.pb-c.c ctl.pb-c.h $(am__append_8) \
 	$(am__append_12)
