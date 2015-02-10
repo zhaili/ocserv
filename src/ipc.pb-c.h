@@ -148,20 +148,25 @@ struct  _CliStatsMsg
   ProtobufCMessage base;
   uint64_t bytes_in;
   uint64_t bytes_out;
+  protobuf_c_boolean has_sid;
+  ProtobufCBinaryData sid;
+  uint32_t uptime;
 };
 #define CLI_STATS_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cli_stats_msg__descriptor) \
-    , 0, 0 }
+    , 0, 0, 0,{0,NULL}, 0 }
 
 
 struct  _UdpFdMsg
 {
   ProtobufCMessage base;
   protobuf_c_boolean hello;
+  protobuf_c_boolean has_data;
+  ProtobufCBinaryData data;
 };
 #define UDP_FD_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&udp_fd_msg__descriptor) \
-    , 1 }
+    , 1, 0,{0,NULL} }
 
 
 struct  _SessionInfoMsg
@@ -170,10 +175,12 @@ struct  _SessionInfoMsg
   char *tls_ciphersuite;
   char *dtls_ciphersuite;
   char *user_agent;
+  char *cstp_compr;
+  char *dtls_compr;
 };
 #define SESSION_INFO_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&session_info_msg__descriptor) \
-    , NULL, NULL, NULL }
+    , NULL, NULL, NULL, NULL, NULL }
 
 
 struct  _SecAuthInitMsg
@@ -256,20 +263,55 @@ struct  _SecAuthSessionMsg
 {
   ProtobufCMessage base;
   ProtobufCBinaryData sid;
+  protobuf_c_boolean has_uptime;
+  uint32_t uptime;
+  protobuf_c_boolean has_bytes_in;
+  uint64_t bytes_in;
+  protobuf_c_boolean has_bytes_out;
+  uint64_t bytes_out;
 };
 #define SEC_AUTH_SESSION_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_msg__descriptor) \
-    , {0,NULL} }
+    , {0,NULL}, 0,0, 0,0, 0,0 }
 
 
 struct  _SecAuthSessionReplyMsg
 {
   ProtobufCMessage base;
   AUTHREP reply;
+  protobuf_c_boolean has_no_udp;
+  protobuf_c_boolean no_udp;
+  protobuf_c_boolean has_deny_roaming;
+  protobuf_c_boolean deny_roaming;
+  protobuf_c_boolean has_require_cert;
+  protobuf_c_boolean require_cert;
+  size_t n_routes;
+  char **routes;
+  size_t n_iroutes;
+  char **iroutes;
+  size_t n_dns;
+  char **dns;
+  size_t n_nbns;
+  char **nbns;
+  char *ipv4_net;
+  char *ipv4_netmask;
+  char *ipv6_net;
+  protobuf_c_boolean has_ipv6_prefix;
+  uint32_t ipv6_prefix;
+  char *cgroup;
+  char *xml_config_file;
+  protobuf_c_boolean has_rx_per_sec;
+  uint32_t rx_per_sec;
+  protobuf_c_boolean has_tx_per_sec;
+  uint32_t tx_per_sec;
+  protobuf_c_boolean has_net_priority;
+  uint32_t net_priority;
+  char *explicit_ipv4;
+  char *explicit_ipv6;
 };
 #define SEC_AUTH_SESSION_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_reply_msg__descriptor) \
-    , 0 }
+    , 0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL }
 
 
 /* AuthCookieRequestMsg methods */

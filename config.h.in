@@ -21,6 +21,9 @@
 /* Define to the number of bits in type 'wint_t'. */
 #undef BITSIZEOF_WINT_T
 
+/* Enable Linux namespaces support */
+#undef ENABLE_LINUX_NS
+
 /* nls support in libopts */
 #undef ENABLE_NLS
 
@@ -255,6 +258,9 @@
 /* Define to 1 if you have the `isatty' function. */
 #undef HAVE_ISATTY
 
+/* Define if you have the libc library. */
+#undef HAVE_LIBC
+
 /* Define if you have the libcrypt library. */
 #undef HAVE_LIBCRYPT
 
@@ -282,8 +288,8 @@
 /* Define if you have the libseccomp library. */
 #undef HAVE_LIBSECCOMP
 
-/* Define if you have the libsystemd-daemon library. */
-#undef HAVE_LIBSYSTEMD_DAEMON
+/* Define if you have the libsystemd library. */
+#undef HAVE_LIBSYSTEMD
 
 /* have libtalloc */
 #undef HAVE_LIBTALLOC
@@ -305,6 +311,9 @@
 
 /* Define to 1 if the system has the type 'long long int'. */
 #undef HAVE_LONG_LONG_INT
+
+/* LZ4 was found */
+#undef HAVE_LZ4
 
 /* Define to 1 if you have the `makecontext' function. */
 #undef HAVE_MAKECONTEXT
@@ -382,6 +391,9 @@
 
 /* Define to 1 if the system has the type `ptrdiff_t'. */
 #undef HAVE_PTRDIFF_T
+
+/* Enable the Radius library */
+#undef HAVE_RADIUS
 
 /* Define to 1 if atoll is declared even after undefining macros. */
 #undef HAVE_RAW_DECL_ATOLL
@@ -858,6 +870,9 @@
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
 
+/* Define to 1 if you have the `strlcpy' function. */
+#undef HAVE_STRLCPY
+
 /* Define to 1 if you have the `strncasecmp' function. */
 #undef HAVE_STRNCASECMP
 
@@ -1102,6 +1117,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* have original glibc */
+#undef TRY_SHA2_CRYPT
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE

@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.8.9], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.9.0], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -162,6 +162,18 @@ AC_LIB_HAVE_LINKFLAGS(readline,, [
     fi
   fi
 
+have_glibc=no
+AC_LIB_HAVE_LINKFLAGS(c,, [
+#include <stdio.h>
+#include <gnu/libc-version.h>
+#include <stdio.h>], [ puts (gnu_get_libc_version ()); return 0; ])
+if test x$ac_cv_libc = xyes; then
+  AC_DEFINE(TRY_SHA2_CRYPT, 1, [have original glibc])
+  have_glibc=yes
+else
+  have_glibc=no
+fi
+
 AC_ARG_WITH(pam,
   AS_HELP_STRING([--without-pam], [do not include PAM support]),
   test_for_pam=$withval,
@@ -184,6 +196,35 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([
    	           AC_MSG_WARN([[
 *** 
 *** libpam was not found. PAM support will be disabled.
+*** ]])])
+LIBS="$oldlibs"
+fi
+
+AC_ARG_WITH(radius,
+  AS_HELP_STRING([--without-radius], [do not include Radius support]),
+  test_for_radius=$withval,
+  test_for_radius=yes)
+
+radius_enabled=no
+
+if test "$test_for_radius" = yes;then
+LIBS="$oldlibs -lfreeradius-client"
+AC_MSG_CHECKING([for freeradius client library])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([
+		   #include <freeradius-client.h>],[
+#ifndef PW_MAX_MSG_SIZE
+#error 1
+#endif
+		   rc_read_config(0);])],
+		  [AC_MSG_RESULT(yes)
+		   AC_SUBST([FREERADIUS_CLIENT_LIBS], [-lfreeradius-client])
+		   AC_SUBST([FREERADIUS_CLIENT_CFLAGS], [])
+		   radius_enabled=yes
+		   AC_DEFINE([HAVE_RADIUS], 1, [Enable the Radius library])],
+		  [AC_MSG_RESULT(no)
+   	           AC_MSG_WARN([[
+*** 
+*** libfreeradius-client git-20141213 was not found. Radius support will be disabled.
 *** ]])])
 LIBS="$oldlibs"
 fi
@@ -227,7 +268,8 @@ AC_CHECK_MEMBER([struct sockaddr.sa_len],
 
 AC_CHECK_HEADERS([net/if_tun.h linux/if_tun.h netinet/in_systm.h], [], [], [])
 
-AC_CHECK_FUNCS([setproctitle vasprintf clock_gettime isatty pselect getpeereid sigaltstack posix_memalign malloc_trim])
+AC_CHECK_FUNCS([setproctitle vasprintf clock_gettime isatty pselect getpeereid sigaltstack])
+AC_CHECK_FUNCS([strlcpy posix_memalign malloc_trim])
 
 if [ test -z "$LIBWRAP" ];then
 	libwrap_enabled="no"
@@ -236,7 +278,7 @@ else
 fi
 
 AC_ARG_ENABLE(seccomp,
-  AS_HELP_STRING([--enable-seccomp], [enable seccomp support]),
+  AS_HELP_STRING([--disable-seccomp], [disable seccomp support]),
     seccomp_enabled=$enableval, seccomp_enabled=yes)
 
 if [ test "$seccomp_enabled" = "yes" ];then
@@ -248,12 +290,35 @@ AC_LIB_HAVE_LINKFLAGS(seccomp,, [#include <seccomp.h>], [seccomp_init(0);])
  fi
 fi
 
+AC_ARG_ENABLE(linux-namespaces,
+  AS_HELP_STRING([--enable-linux-namespaces], [enable support for namespaces (containers) in Linux]),
+    linux_ns_enabled=$enableval, linux_ns_enabled=no)
+
+if [ test "$linux_ns_enabled" = "yes" ];then
+AC_MSG_CHECKING([for Linux namespaces])
+dnl We use Linux namespaces only in the platforms clone() works as expected
+AC_LINK_IFELSE([AC_LANG_PROGRAM([
+		   #include <sched.h>
+		   #include <linux/sched.h>],[
+		   #if defined(__i386__) || defined(__arm__) || defined(__x86_64__) || defined(__mips__)
+		   unshare(CLONE_NEWPID|CLONE_NEWIPC);
+		   #else
+		   # error 1
+		   #endif])],
+		  [AC_MSG_RESULT(yes)
+	  	   AC_DEFINE([ENABLE_LINUX_NS], 1, [Enable Linux namespaces support])
+		   linux_ns_enabled=yes],
+		  [AC_MSG_RESULT(no)
+		   linux_ns_enabled=no
+])
+fi
+
 AC_ARG_ENABLE(systemd,
   AS_HELP_STRING([--disable-systemd], [disable systemd support]),
     systemd_enabled=$enableval, systemd_enabled=yes)
 
 if [ test "$systemd_enabled" = "yes" ];then
-AC_LIB_HAVE_LINKFLAGS(systemd-daemon,, [#include <systemd/sd-daemon.h>], [sd_listen_fds(0);])
+AC_LIB_HAVE_LINKFLAGS(systemd,, [#include <systemd/sd-daemon.h>], [sd_listen_fds(0);])
  if [ test -z "$LIBSYSTEMD_DAEMON" ];then
 	systemd_enabled="no"
  else
@@ -305,6 +370,25 @@ LIBS="$oldlibs"
 fi
 AM_CONDITIONAL(LOCAL_HTTP_PARSER, test "x$with_local_http_parser" != xno)
 
+dnl LZ4
+AC_ARG_WITH(lz4,
+  AS_HELP_STRING([--without-lz4], [disable support for LZ4 compression]),
+  test_for_lz4=$withval,
+  test_for_lz4=yes)
+
+enable_lz4=no
+if test "$test_for_lz4" = yes;then
+PKG_CHECK_MODULES([LIBLZ4], [liblz4], [
+enable_lz4=yes
+AC_DEFINE([HAVE_LZ4], [], [LZ4 was found])
+],
+[
+	AC_MSG_WARN([[
+***
+*** lz4 not found. Will disable compression support.
+*** ]])
+])
+fi
 
 dnl needed in the included PCL
 AC_C_VOLATILE
@@ -381,12 +465,14 @@ Summary of build options:
   CFlags:               ${CFLAGS}
   
   PAM auth backend:     ${pam_enabled}
+  Radius auth backend:  ${radius_enabled}
   TCP wrappers:         ${libwrap_enabled}
   systemd:              ${systemd_enabled}
   (socket activation)
   dbus:                 ${dbus_enabled}
   readline:             ${have_readline}
   libnl3:               ${have_libnl3}
+  glibc (sha2crypt):    ${have_glibc}
   local talloc:         ${with_local_talloc}
   local protobuf-c:     ${with_local_protobuf_c}
   local PCL library:    ${with_local_pcl}
@@ -398,6 +484,8 @@ AC_MSG_NOTICE([
 
 Experimental options:
   seccomp:              ${seccomp_enabled}
+  Linux namespaces:     ${linux_ns_enabled}
+  LZ4 compression:      ${enable_lz4}
   Anyconnect compat:    ${anyconnect_enabled}
 ])
 

@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Nikos Mavrogiannopoulos
+ * Copyright (C) 2013, 2014, 2015 Nikos Mavrogiannopoulos
+ * Copyright (C) 2015 Red Hat
  *
  * This file is part of ocserv.
  *
@@ -235,3 +236,4 @@ int ret;
 }
 
 #endif
+

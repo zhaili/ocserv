@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Nikos Mavrogiannopoulos
+ * Copyright (C) 2013, 2014 Nikos Mavrogiannopoulos
+ * Copyright (C) 2014 Red Hat, Inc.
  *
  * Author: Nikos Mavrogiannopoulos
  *
@@ -42,6 +43,23 @@ ssize_t force_read_timeout(int sockfd, void *buf, size_t len, unsigned sec);
 ssize_t recv_timeout(int sockfd, void *buf, size_t len, unsigned sec);
 int ip_cmp(const struct sockaddr_storage *s1, const struct sockaddr_storage *s2, size_t n);
 char* ipv6_prefix_to_mask(void *pool, unsigned prefix);
+char* ipv4_prefix_to_mask(void *pool, unsigned prefix);
+inline static int valid_ipv6_prefix(unsigned prefix)
+{
+	switch (prefix) {
+		case 16:
+		case 32:
+		case 48:
+		case 64:
+		case 80:
+		case 96:
+		case 112:
+		case 128:
+			return 1;
+		default:
+			return 0;
+	}
+}
 
 typedef size_t (*pack_func)(const void*, uint8_t *);
 typedef size_t (*pack_size_func)(const void*);
@@ -64,6 +82,11 @@ int recv_socket_msg(void *pool, int fd, uint8_t cmd,
 			int *socketfd, void** msg, unpack_func);
 
 const char* cmd_request_to_str(unsigned cmd);
+
+ssize_t oc_recvfrom_at(int sockfd, void *buf, size_t len, int flags,
+                    struct sockaddr *src_addr, socklen_t *addrlen,
+                    struct sockaddr *our_addr, socklen_t *our_addrlen,
+                    int def_port);
 
 inline static
 void safe_memset(void *data, int c, size_t size)
@@ -96,5 +119,10 @@ void ms_sleep(unsigned ms)
   
   nanosleep(&tv, NULL);
 }
+
+#ifndef HAVE_STRLCPY
+size_t oc_strlcpy(char *dst, char const *src, size_t siz);
+# define strlcpy oc_strlcpy
+#endif
 
 #endif

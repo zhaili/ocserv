@@ -48,6 +48,7 @@
 # include <sys/mman.h>
 #endif
 
+
 int handle_worker_commands(struct worker_st *ws)
 {
 	struct iovec iov[3];
@@ -55,7 +56,8 @@ int handle_worker_commands(struct worker_st *ws)
 	uint16_t length;
 	int e;
 	struct msghdr hdr;
-	uint8_t cmd_data[32];
+	uint8_t cmd_data[1536];
+	UdpFdMsg *tmsg = NULL;
 	union {
 		struct cmsghdr    cm;
 		char              control[CMSG_SPACE(sizeof(int))];
@@ -107,7 +109,6 @@ int handle_worker_commands(struct worker_st *ws)
 		case CMD_TERMINATE:
 			exit(0);
 		case CMD_UDP_FD: {
-			UdpFdMsg *tmsg;
 			unsigned hello = 1;
 			int fd;
 
@@ -118,7 +119,6 @@ int handle_worker_commands(struct worker_st *ws)
 			tmsg = udp_fd_msg__unpack(NULL, length, cmd_data);
 			if (tmsg) {
 				hello = tmsg->hello;
-				udp_fd_msg__free_unpacked(tmsg, NULL);
 			}
 
 			if ( (cmptr = CMSG_FIRSTHDR(&hdr)) != NULL && cmptr->cmsg_len == CMSG_LEN(sizeof(int))) {
@@ -134,19 +134,22 @@ int handle_worker_commands(struct worker_st *ws)
 					if ((ws->udp_state != UP_ACTIVE && ws->udp_state != UP_INACTIVE) ||
 						time(0) - ws->last_msg_udp < ACTIVE_SESSION_TIMEOUT) {
 						oclog(ws, LOG_INFO, "received UDP fd message but our session is active!");
+						udp_fd_msg__free_unpacked(tmsg, NULL);
 						close(fd);
 						return 0;
 					}
-					if (ws->dtls_session != NULL)
-						gnutls_transport_set_ptr(ws->dtls_session, (gnutls_transport_ptr_t)(long)fd);
 				} else { /* received client hello */
 					ws->udp_state = UP_SETUP;
 				}
 
-				if (ws->udp_fd != -1) {
-					close(ws->udp_fd);
-				}
-				ws->udp_fd = fd;
+				if (ws->dtls_tptr.fd != -1)
+					close(ws->dtls_tptr.fd);
+				if (ws->dtls_tptr.msg != NULL)
+					udp_fd_msg__free_unpacked(tmsg, NULL);
+
+				ws->dtls_tptr.msg = tmsg;
+
+				ws->dtls_tptr.fd = fd;
 				set_non_block(fd);
 
 				oclog(ws, LOG_DEBUG, "received new UDP fd and connected to peer");
@@ -166,7 +169,8 @@ int handle_worker_commands(struct worker_st *ws)
 	return 0;
 
 udp_fd_fail:
-	if (ws->udp_fd == -1)
+	udp_fd_msg__free_unpacked(tmsg, NULL);
+	if (ws->dtls_tptr.fd == -1)
 		ws->udp_state = UP_DISABLED;
 
 	return -1;
@@ -227,7 +231,6 @@ int complete_vpn_info(worker_st * ws, struct vpn_st *vinfo)
 	vinfo->ipv6_network = ws->config->network.ipv6_network;
 
 	vinfo->ipv4_netmask = ws->config->network.ipv4_netmask;
-	vinfo->ipv6_netmask = ws->config->network.ipv6_netmask;
 	vinfo->ipv6_prefix = ws->config->network.ipv6_prefix;
 
 	if (ws->config->network.mtu != 0) {

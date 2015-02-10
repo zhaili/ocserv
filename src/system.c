@@ -21,6 +21,9 @@
 #include <unistd.h>
 #ifdef __linux__
 # include <sys/prctl.h>
+# include <sched.h>
+# include <linux/sched.h>
+# include <sys/syscall.h>
 #endif
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -38,6 +41,33 @@ void kill_on_parent_kill(int sig)
 #endif
 }
 
+void pr_set_undumpable(const char *mod)
+{
+#ifdef __linux__
+	if (prctl(PR_SET_DUMPABLE, 0) == -1) {
+		int e = errno;
+		syslog(LOG_ERR, "%s: prctl(PR_SET_DUMPABLE) failed %s",
+			mod, strerror(e));
+	}
+#endif
+}
+
+#if defined(__linux__) && defined(ENABLE_LINUX_NS)
+pid_t safe_fork(void)
+{
+	long ret;
+	/* fork: 100%
+	 * CLONE_NEWPID|CLONE_NEWNET|CLONE_NEWIPC: 3%
+	 * CLONE_NEWPID|CLONE_NEWIPC: 27%
+	 * CLONE_NEWPID: 36%
+	 */
+	int flags = SIGCHLD|CLONE_NEWPID|CLONE_NEWIPC;
+	ret = syscall(SYS_clone, flags, 0, 0, 0);
+	if (ret == 0 && syscall(SYS_getpid)!= 1)
+		return -1;
+	return ret;
+}
+#endif
 
 SIGHANDLER_T ocsignal(int signum, SIGHANDLER_T handler)
 {
@@ -54,7 +84,7 @@ SIGHANDLER_T ocsignal(int signum, SIGHANDLER_T handler)
 /* Checks whether the peer in a socket has the expected @uid and @gid.
  * Returns zero on success.
  */
-int check_upeer_id(const char *mod, int cfd, uid_t uid, uid_t gid, uid_t *ruid)
+int check_upeer_id(const char *mod, int debug, int cfd, uid_t uid, uid_t gid, uid_t *ruid)
 {
 	int e, ret;
 #if defined(SO_PEERCRED) && defined(HAVE_STRUCT_UCRED)
@@ -74,9 +104,10 @@ int check_upeer_id(const char *mod, int cfd, uid_t uid, uid_t gid, uid_t *ruid)
 		return -1;
 	}
 
-	syslog(LOG_DEBUG,
-	       "%s: received request from pid %u and uid %u",
-	       mod, (unsigned)cr.pid, (unsigned)cr.uid);
+	if (debug != 0)
+		syslog(LOG_DEBUG,
+		       "%s: received request from pid %u and uid %u",
+		       mod, (unsigned)cr.pid, (unsigned)cr.uid);
 
 	if (ruid)
 		*ruid = cr.uid;
@@ -103,9 +134,10 @@ int check_upeer_id(const char *mod, int cfd, uid_t uid, uid_t gid, uid_t *ruid)
 	if (ruid)
 		*ruid = euid;
 
-	syslog(LOG_DEBUG,
-	       "%s: received request from a processes with uid %u",
-		mod, (unsigned)euid);
+	if (debug = 0)
+		syslog(LOG_DEBUG,
+		       "%s: received request from a processes with uid %u",
+		       mod, (unsigned)euid);
 	if (euid != 0 && (euid != uid || egid != gid)) {
 		syslog(LOG_DEBUG,
 		       "%s: received unauthorized request from a process with uid %u",

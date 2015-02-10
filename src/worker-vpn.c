@@ -42,7 +42,6 @@
 #include <gettime.h>
 #include <common.h>
 #include <html.h>
-#include <base64.h>
 #include <c-strcase.h>
 #include <c-ctype.h>
 #include <worker-bandwidth.h>
@@ -54,6 +53,10 @@
 #include <tlslib.h>
 
 #include <http_parser.h>
+
+#if GNUTLS_VERSION_NUMBER >= 0x030305
+# define ZERO_COPY
+#endif
 
 #define MIN_MTU(ws) (((ws)->vinfo.ipv6!=NULL)?1281:257)
 
@@ -77,6 +80,7 @@ static int parse_cstp_data(struct worker_st *ws, uint8_t * buf, size_t buf_size,
 static int parse_dtls_data(struct worker_st *ws, uint8_t * buf, size_t buf_size,
 			   time_t);
 static void exit_worker(worker_st * ws);
+static int connect_handler(worker_st * ws);
 
 static void handle_alarm(int signo)
 {
@@ -92,455 +96,70 @@ static void handle_term(int signo)
 	alarm(2);		/* force exit by SIGALRM */
 }
 
-static int connect_handler(worker_st * ws);
-
-typedef int (*url_handler_fn) (worker_st *, unsigned http_ver);
-struct known_urls_st {
-	const char *url;
-	unsigned url_size;
-	unsigned partial_match;
-	url_handler_fn get_handler;
-	url_handler_fn post_handler;
-};
-
-#define LL(x,y,z) {x, sizeof(x)-1, 0, y, z}
-#define LL_DIR(x,y,z) {x, sizeof(x)-1, 1, y, z}
-const static struct known_urls_st known_urls[] = {
-	LL("/", get_auth_handler, post_auth_handler),
-	LL("/auth", get_auth_handler, post_auth_handler),
-#ifdef ANYCONNECT_CLIENT_COMPAT
-	LL("/1/index.html", get_empty_handler, NULL),
-	LL("/1/Linux", get_empty_handler, NULL),
-	LL("/1/Linux_64", get_empty_handler, NULL),
-	LL("/1/Windows", get_empty_handler, NULL),
-	LL("/1/Darwin_i386", get_empty_handler, NULL),
-	LL("/1/binaries/vpndownloader.sh", get_dl_handler, NULL),
-	LL("/1/VPNManifest.xml", get_string_handler, NULL),
-	LL("/1/binaries/update.txt", get_string_handler, NULL),
-
-	LL_DIR("/profiles", get_config_handler, NULL),
-	LL("/+CSCOT+/", get_string_handler, NULL),
-	LL("/logout", get_empty_handler, NULL),
-#endif
-	{NULL, 0, 0, NULL, NULL}
-};
-
-static url_handler_fn get_url_handler(const char *url)
+inline static ssize_t dtls_pull_buffer_non_empty(gnutls_transport_ptr_t ptr)
 {
-	const struct known_urls_st *p;
-	unsigned len = strlen(url);
+	dtls_transport_ptr *p = ptr;
+	if (p->msg)
+		return 1;
+	return 0;
+}
 
-	p = known_urls;
-	do {
-		if (p->url != NULL) {
-			if ((len == p->url_size && strcmp(p->url, url) == 0) ||
-			    (len >= p->url_size
-			     && strncmp(p->url, url, p->url_size) == 0
-			     && (p->partial_match != 0
-				 || url[p->url_size] == '/'
-				 || url[p->url_size] == '?')))
-				return p->get_handler;
+static
+ssize_t dtls_pull(gnutls_transport_ptr_t ptr, void *data, size_t size)
+{
+	dtls_transport_ptr *p = ptr;
+
+	if (p->msg) {
+		ssize_t need = p->msg->data.len;
+		if (need > size) {
+			need = size;
 		}
-		p++;
-	} while (p->url != NULL);
+		memcpy(data, p->msg->data.data, need);
 
-	return NULL;
+		udp_fd_msg__free_unpacked(p->msg, NULL);
+		p->msg = NULL;
+		return need;
+	}
+	return recv(p->fd, data, size, 0);
 }
 
-static url_handler_fn post_url_handler(const char *url)
+static
+int dtls_pull_timeout(gnutls_transport_ptr_t ptr, unsigned int ms)
 {
-	const struct known_urls_st *p;
+	fd_set rfds;
+	struct timeval tv;
+	int ret;
+	dtls_transport_ptr *p = ptr;
+	int fd = p->fd;
 
-	p = known_urls;
-	do {
-		if (p->url != NULL && strcmp(p->url, url) == 0)
-			return p->post_handler;
-		p++;
-	} while (p->url != NULL);
-
-	return NULL;
-}
-
-int url_cb(http_parser * parser, const char *at, size_t length)
-{
-	struct worker_st *ws = parser->data;
-	struct http_req_st *req = &ws->req;
-
-	if (length >= sizeof(req->url)) {
-		req->url[0] = 0;
+	if (dtls_pull_buffer_non_empty(ptr)) {
 		return 1;
 	}
 
-	memcpy(req->url, at, length);
-	req->url[length] = 0;
+	FD_ZERO(&rfds);
+	FD_SET(fd, &rfds);
 
-	return 0;
-}
+	tv.tv_sec = 0;
+	tv.tv_usec = ms * 1000;
 
-#define CS_AES128_GCM "OC-DTLS1_2-AES128-GCM"
-#define CS_AES256_GCM "OC-DTLS1_2-AES256-GCM"
-
-/* Consider switching to gperf when this table grows significantly.
- */
-static const dtls_ciphersuite_st ciphersuites[] = {
-#if GNUTLS_VERSION_NUMBER >= 0x030207
-	{
-	 .oc_name = CS_AES128_GCM,
-	 .gnutls_name =
-	 "NONE:+VERS-DTLS1.2:+COMP-NULL:+AES-128-GCM:+AEAD:+RSA:%COMPAT:+SIGN-ALL",
-	 .gnutls_version = GNUTLS_DTLS1_2,
-	 .gnutls_mac = GNUTLS_MAC_AEAD,
-	 .gnutls_cipher = GNUTLS_CIPHER_AES_128_GCM,
-	 .server_prio = 90},
-	{
-	 .oc_name = CS_AES256_GCM,
-	 .gnutls_name =
-	 "NONE:+VERS-DTLS1.2:+COMP-NULL:+AES-256-GCM:+AEAD:+RSA:%COMPAT:+SIGN-ALL",
-	 .gnutls_version = GNUTLS_DTLS1_2,
-	 .gnutls_mac = GNUTLS_MAC_AEAD,
-	 .gnutls_cipher = GNUTLS_CIPHER_AES_256_GCM,
-	 .server_prio = 80,
-	 },
-#endif
-	{
-	 .oc_name = "AES128-SHA",
-	 .gnutls_name =
-	 "NONE:+VERS-DTLS0.9:+COMP-NULL:+AES-128-CBC:+SHA1:+RSA:%COMPAT",
-	 .gnutls_version = GNUTLS_DTLS0_9,
-	 .gnutls_mac = GNUTLS_MAC_SHA1,
-	 .gnutls_cipher = GNUTLS_CIPHER_AES_128_CBC,
-	 .server_prio = 50,
-	 },
-	{
-	 .oc_name = "DES-CBC3-SHA",
-	 .gnutls_name =
-	 "NONE:+VERS-DTLS0.9:+COMP-NULL:+3DES-CBC:+SHA1:+RSA:%COMPAT",
-	 .gnutls_version = GNUTLS_DTLS0_9,
-	 .gnutls_mac = GNUTLS_MAC_SHA1,
-	 .gnutls_cipher = GNUTLS_CIPHER_3DES_CBC,
-	 .server_prio = 1,
-	 },
-};
-
-static void value_check(struct worker_st *ws, struct http_req_st *req)
-{
-	unsigned tmplen, i;
-	int ret;
-	size_t nlen, value_length;
-	char *token, *value;
-	char *str, *p;
-	const dtls_ciphersuite_st *cand = NULL;
-	gnutls_cipher_algorithm_t want_cipher;
-	gnutls_mac_algorithm_t want_mac;
-
-	if (req->value.length <= 0)
-		return;
-
-	oclog(ws, LOG_HTTP_DEBUG, "HTTP: %.*s: %.*s", (int)req->header.length,
-	      req->header.data, (int)req->value.length, req->value.data);
-
-	value = talloc_size(ws, req->value.length + 1);
-	if (value == NULL)
-		return;
-
-	/* make sure the value is null terminated */
-	value_length = req->value.length;
-	memcpy(value, req->value.data, value_length);
-	value[value_length] = 0;
-
-	switch (req->next_header) {
-	case HEADER_MASTER_SECRET:
-		if (value_length < TLS_MASTER_SIZE * 2) {
-			req->master_secret_set = 0;
-			goto cleanup;
-		}
-
-		tmplen = TLS_MASTER_SIZE * 2;
-
-		nlen = sizeof(req->master_secret);
-		gnutls_hex2bin((void *)value, tmplen,
-			       req->master_secret, &nlen);
-
-		req->master_secret_set = 1;
-		break;
-	case HEADER_HOSTNAME:
-		if (value_length + 1 > MAX_HOSTNAME_SIZE) {
-			req->hostname[0] = 0;
-			goto cleanup;
-		}
-		memcpy(req->hostname, value, value_length);
-		req->hostname[value_length] = 0;
-		break;
-	case HEADER_DEVICE_TYPE:
-		req->is_mobile = 1;
-		break;
-	case HEADER_USER_AGENT:
-		if (value_length + 1 > MAX_AGENT_NAME) {
-			memcpy(req->user_agent, value, MAX_AGENT_NAME-1);
-			req->user_agent[MAX_AGENT_NAME-1] = 0;
-		} else {
-			memcpy(req->user_agent, value, value_length);
-			req->user_agent[value_length] = 0;
-		}
-
-		oclog(ws, LOG_DEBUG,
-		      "User-agent: '%s'", req->user_agent);
-
-		if (strncasecmp(req->user_agent, "Open Any", 8) == 0) {
-			if (strncmp(req->user_agent, "Open AnyConnect VPN Agent v3", 28) == 0)
-				req->user_agent_type = AGENT_OPENCONNECT_V3;
-			else
-				req->user_agent_type = AGENT_OPENCONNECT;
-		}
-		break;
-
-	case HEADER_DTLS_CIPHERSUITE:
-		if (ws->session != NULL) {
-			want_mac = gnutls_mac_get(ws->session);
-			want_cipher = gnutls_cipher_get(ws->session);
-		} else {
-			want_mac = -1;
-			want_cipher = -1;
-		}
-
-		req->selected_ciphersuite = NULL;
-
-		str = (char *)value;
-		while ((token = strtok(str, ":")) != NULL) {
-			for (i = 0;
-			     i < sizeof(ciphersuites) / sizeof(ciphersuites[0]);
-			     i++) {
-				if (strcmp(token, ciphersuites[i].oc_name) == 0) {
-					if (cand == NULL ||
-					    cand->server_prio <
-					    ciphersuites[i].server_prio) {
-						cand =
-						    &ciphersuites[i];
-
-						/* if our candidate matches the TLS session
-						 * ciphersuite, we are finished */
-						if (want_cipher != -1) {
-							if (want_cipher == cand->gnutls_cipher &&
-							    want_mac == cand->gnutls_mac)
-							    break;
-						}
-					}
-				}
-			}
-			str = NULL;
-		}
-	        req->selected_ciphersuite = cand;
-
-		break;
-
-	case HEADER_CSTP_BASE_MTU:
-		req->base_mtu = atoi((char *)value);
-		break;
-	case HEADER_CSTP_ATYPE:
-		if (memmem(value, value_length, "IPv4", 4) == NULL)
-			req->no_ipv4 = 1;
-		if (memmem(value, value_length, "IPv6", 4) == NULL)
-			req->no_ipv6 = 1;
-		break;
-	case HEADER_FULL_IPV6:
-		if (memmem(value, value_length, "true", 4) != NULL)
-			ws->full_ipv6 = 1;
-		break;
-	case HEADER_COOKIE:
-
-		str = (char *)value;
-		while ((token = strtok(str, ";")) != NULL) {
-			p = token;
-			while (c_isspace(*p)) {
-				p++;
-			}
-			tmplen = strlen(p);
-
-			if (strncmp(p, "webvpn=", 7) == 0) {
-				tmplen -= 7;
-				p += 7;
-
-				while (tmplen > 1 && c_isspace(p[tmplen - 1])) {
-					tmplen--;
-				}
-
-				nlen = tmplen;
-				ws->cookie = talloc_size(ws, nlen);
-				if (ws->cookie == NULL)
-					return;
-
-				ret =
-				    base64_decode((char *)p, tmplen,
-						  (char *)ws->cookie, &nlen);
-				if (ret == 0) {
-					oclog(ws, LOG_DEBUG,
-					      "could not decode cookie: %.*s",
-					      tmplen, p);
-					ws->cookie_set = 0;
-				} else {
-					ws->cookie_size = nlen;
-					ws->auth_state = S_AUTH_COOKIE;
-					ws->cookie_set = 1;
-				}
-			} else if (strncmp(p, "webvpncontext=", 14) == 0) {
-				p += 14;
-				tmplen -= 14;
-
-				while (tmplen > 1 && c_isspace(p[tmplen - 1])) {
-					tmplen--;
-				}
-
-				nlen = sizeof(ws->sid);
-				ret =
-				    base64_decode((char *)p, tmplen,
-						  (char *)ws->sid, &nlen);
-				if (ret == 0 || nlen != sizeof(ws->sid)) {
-					oclog(ws, LOG_DEBUG,
-					      "could not decode sid: %.*s",
-					      tmplen, p);
-					ws->sid_set = 0;
-				} else {
-					ws->sid_set = 1;
-					oclog(ws, LOG_DEBUG,
-					      "received sid: %.*s", tmplen, p);
-				}
-			}
-
-			str = NULL;
-		}
-		break;
+	while (tv.tv_usec >= 1000000) {
+		tv.tv_usec -= 1000000;
+		tv.tv_sec++;
 	}
 
- cleanup:
-	talloc_free(value);
-}
-
-int header_field_cb(http_parser * parser, const char *at, size_t length)
-{
-	struct worker_st *ws = parser->data;
-	struct http_req_st *req = &ws->req;
-	int ret;
-
-	if (req->header_state != HTTP_HEADER_RECV) {
-		/* handle value */
-		if (req->header_state == HTTP_HEADER_VALUE_RECV)
-			value_check(ws, req);
-		req->header_state = HTTP_HEADER_RECV;
-		str_reset(&req->header);
-	}
-
-	ret = str_append_data(&req->header, at, length);
-	if (ret < 0)
+	ret = select(fd + 1, &rfds, NULL, NULL, &tv);
+	if (ret <= 0)
 		return ret;
 
-	return 0;
+	return ret;
 }
 
-static void header_check(struct http_req_st *req)
+static
+ssize_t dtls_push(gnutls_transport_ptr_t ptr, const void *data, size_t size)
 {
-	/* FIXME: move this mess to a table */
-	if (req->header.length == sizeof(STR_HDR_COOKIE) - 1 &&
-	    strncmp((char *)req->header.data, STR_HDR_COOKIE,
-		    req->header.length) == 0) {
-		req->next_header = HEADER_COOKIE;
-	} else if (req->header.length == sizeof(STR_HDR_MS) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_MS,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_MASTER_SECRET;
-	} else if (req->header.length == sizeof(STR_HDR_CMTU) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_CMTU,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_CSTP_BASE_MTU;
-	} else if (req->header.length == sizeof(STR_HDR_HOST) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_HOST,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_HOSTNAME;
-	} else if (req->header.length == sizeof(STR_HDR_CS) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_CS,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_DTLS_CIPHERSUITE;
-	} else if (req->header.length == sizeof(STR_HDR_DEVICE_TYPE) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_DEVICE_TYPE,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_DEVICE_TYPE;
-	} else if (req->header.length == sizeof(STR_HDR_ATYPE) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_ATYPE,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_CSTP_ATYPE;
-	} else if (req->header.length == sizeof(STR_HDR_CONNECTION) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_CONNECTION,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_CONNECTION;
-	} else if (req->header.length == sizeof(STR_HDR_USER_AGENT) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_USER_AGENT,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_USER_AGENT;
-	} else if (req->header.length == sizeof(STR_HDR_FULL_IPV6) - 1 &&
-		   strncmp((char *)req->header.data, STR_HDR_FULL_IPV6,
-			   req->header.length) == 0) {
-		req->next_header = HEADER_FULL_IPV6;
-	} else {
-		req->next_header = 0;
-	}
-}
+	dtls_transport_ptr *p = ptr;
 
-int header_value_cb(http_parser * parser, const char *at, size_t length)
-{
-	struct worker_st *ws = parser->data;
-	struct http_req_st *req = &ws->req;
-	int ret;
-
-	if (req->header_state != HTTP_HEADER_VALUE_RECV) {
-		/* handle header */
-		header_check(req);
-		req->header_state = HTTP_HEADER_VALUE_RECV;
-		str_reset(&req->value);
-	}
-
-	ret = str_append_data(&req->value, at, length);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
-int header_complete_cb(http_parser * parser)
-{
-	struct worker_st *ws = parser->data;
-	struct http_req_st *req = &ws->req;
-
-	/* handle header value */
-	value_check(ws, req);
-
-	req->headers_complete = 1;
-	return 0;
-}
-
-int message_complete_cb(http_parser * parser)
-{
-	struct worker_st *ws = parser->data;
-	struct http_req_st *req = &ws->req;
-
-	req->message_complete = 1;
-	return 0;
-}
-
-int body_cb(http_parser * parser, const char *at, size_t length)
-{
-	struct worker_st *ws = parser->data;
-	struct http_req_st *req = &ws->req;
-	char *tmp;
-
-	tmp = talloc_realloc_size(ws, req->body, req->body_length + length + 1);
-	if (tmp == NULL)
-		return 1;
-
-	memcpy(&tmp[req->body_length], at, length);
-	req->body_length += length;
-	tmp[req->body_length] = 0;
-
-	req->body = tmp;
-	return 0;
+	return send(p->fd, data, size, 0);
 }
 
 static int setup_dtls_connection(struct worker_st *ws)
@@ -601,8 +220,11 @@ static int setup_dtls_connection(struct worker_st *ws)
 		goto fail;
 	}
 
-	gnutls_transport_set_ptr(session,
-				 (gnutls_transport_ptr_t) (long)ws->udp_fd);
+	gnutls_transport_set_push_function(session, dtls_push);
+	gnutls_transport_set_pull_function(session, dtls_pull);
+	gnutls_transport_set_pull_timeout_function(session, dtls_pull_timeout);
+	gnutls_transport_set_ptr(session, &ws->dtls_tptr);
+
 	gnutls_session_set_ptr(session, ws);
 	gnutls_certificate_server_set_request(session, GNUTLS_CERT_IGNORE);
 
@@ -616,33 +238,6 @@ static int setup_dtls_connection(struct worker_st *ws)
  fail:
 	gnutls_deinit(session);
 	return -1;
-}
-
-static void http_req_init(worker_st * ws)
-{
-	str_init(&ws->req.header, ws);
-	str_init(&ws->req.value, ws);
-}
-
-static void http_req_reset(worker_st * ws)
-{
-	ws->req.headers_complete = 0;
-	ws->req.message_complete = 0;
-	ws->req.body_length = 0;
-	ws->req.url[0] = 0;
-
-	ws->req.header_state = HTTP_HEADER_INIT;
-	str_reset(&ws->req.header);
-	str_reset(&ws->req.value);
-}
-
-static void http_req_deinit(worker_st * ws)
-{
-	http_req_reset(ws);
-	str_clear(&ws->req.header);
-	str_clear(&ws->req.value);
-	talloc_free(ws->req.body);
-	ws->req.body = NULL;
 }
 
 static
@@ -706,13 +301,18 @@ void vpn_server(struct worker_st *ws)
 	if (ws->config->auth_timeout)
 		alarm(ws->config->auth_timeout);
 
-	if (ws->config->seccomp != 0) {
+	/* do not allow this process to be traced. That
+	 * prevents worker processes tracing each other. */
+	if (ws->config->debug == 0)
+		pr_set_undumpable("worker");
+	if (ws->config->isolate != 0) {
 		ret = disable_system_calls(ws);
 		if (ret < 0) {
 			oclog(ws, LOG_INFO,
 			      "could not disable system calls, kernel might not support seccomp");
 		}
 	}
+	ws->session_start_time = time(0);
 
 	oclog(ws, LOG_DEBUG, "accepted connection");
 	if (ws->remote_addr_len == sizeof(struct sockaddr_in))
@@ -755,12 +355,12 @@ void vpn_server(struct worker_st *ws)
 
 	memset(&settings, 0, sizeof(settings));
 
-	settings.on_url = url_cb;
-	settings.on_header_field = header_field_cb;
-	settings.on_header_value = header_value_cb;
-	settings.on_headers_complete = header_complete_cb;
-	settings.on_message_complete = message_complete_cb;
-	settings.on_body = body_cb;
+	settings.on_url = http_url_cb;
+	settings.on_header_field = http_header_field_cb;
+	settings.on_header_value = http_header_value_cb;
+	settings.on_headers_complete = http_header_complete_cb;
+	settings.on_message_complete = http_message_complete_cb;
+	settings.on_body = http_body_cb;
 	http_req_init(ws);
 
 	ws->session = session;
@@ -798,7 +398,7 @@ void vpn_server(struct worker_st *ws)
 
 	if (parser.method == HTTP_GET) {
 		oclog(ws, LOG_HTTP_DEBUG, "HTTP GET %s", ws->req.url);
-		fn = get_url_handler(ws->req.url);
+		fn = http_get_url_handler(ws->req.url);
 		if (fn == NULL) {
 			oclog(ws, LOG_HTTP_DEBUG, "unexpected URL %s", ws->req.url);
 			cstp_puts(ws, "HTTP/1.1 404 Not found\r\n\r\n");
@@ -826,7 +426,7 @@ void vpn_server(struct worker_st *ws)
 			}
 		}
 
-		fn = post_url_handler(ws->req.url);
+		fn = http_post_url_handler(ws->req.url);
 		if (fn == NULL) {
 			oclog(ws, LOG_HTTP_DEBUG, "unexpected POST URL %s",
 			      ws->req.url);
@@ -877,11 +477,15 @@ void session_info_send(worker_st * ws)
 
 	if (ws->session) {
 		msg.tls_ciphersuite = gnutls_session_get_desc(ws->session);
+		if (ws->cstp_selected_comp)
+			msg.cstp_compr = (char*)ws->cstp_selected_comp->name;
 	}
 
 	if (ws->udp_state != UP_DISABLED && ws->dtls_session) {
 		msg.dtls_ciphersuite =
 		    gnutls_session_get_desc(ws->dtls_session);
+		if (ws->dtls_selected_comp)
+			msg.dtls_compr = (char*)ws->dtls_selected_comp->name;
 	}
 
 	if (ws->req.user_agent[0] != 0) {
@@ -992,6 +596,35 @@ int periodic_check(worker_st * ws, unsigned mtu_overhead, time_t now,
 
 	}
 
+	if (ws->config->stats_report_time > 0 &&
+	    now - ws->last_stats_msg >= ws->config->stats_report_time &&
+	    ws->sid_set) {
+		CliStatsMsg msg = CLI_STATS_MSG__INIT;
+		int sd;
+
+		ws->last_stats_msg = now;
+
+		sd = connect_to_secmod(ws);
+		if (sd >= 0) {
+			msg.bytes_in = ws->tun_bytes_in;
+			msg.bytes_out = ws->tun_bytes_out;
+			msg.uptime = now - ws->session_start_time;
+			msg.sid.len = sizeof(ws->sid);
+			msg.sid.data = ws->sid;
+			msg.has_sid = 1;
+
+			send_msg_to_secmod(ws, sd, SM_CMD_CLI_STATS, &msg,
+					 (pack_size_func)cli_stats_msg__get_packed_size,
+					 (pack_func) cli_stats_msg__pack);
+			close(sd);
+
+			oclog(ws, LOG_DEBUG,
+			      "sending periodic stats (in: %lu, out: %lu) to sec-mod",
+			      (unsigned long)msg.bytes_in,
+			      (unsigned long)msg.bytes_out);
+		}
+	}
+
 	/* check DPD. Otherwise exit */
 	if (ws->udp_state == UP_ACTIVE &&
 	    now - ws->last_msg_udp > DPD_TRIES * dpd && dpd > 0) {
@@ -1090,7 +723,11 @@ static void set_net_priority(worker_st * ws, int fd, int priority)
 
 static int dtls_mainloop(worker_st * ws, struct timespec *tnow)
 {
-	int ret, l;
+	int ret;
+	gnutls_datum_t data;
+#ifdef ZERO_COPY
+	gnutls_packet_t packet = NULL;
+#endif
 
 	switch (ws->udp_state) {
 	case UP_ACTIVE:
@@ -1105,8 +742,20 @@ static int dtls_mainloop(worker_st * ws, struct timespec *tnow)
 			break;
 		}
 #endif
+
+#ifdef ZERO_COPY
+		ret = gnutls_record_recv_packet(ws->dtls_session, &packet);
+		if (ret > 0) {
+			gnutls_packet_get(packet, &data, NULL);
+		} else {
+			data.size = 0;
+		}
+#else
 		ret =
 		    gnutls_record_recv(ws->dtls_session, ws->buffer, ws->buffer_size);
+		data.data = ws->buffer;
+		data.size = ret;
+#endif
 		oclog(ws, LOG_TRANSFER_DEBUG,
 		      "received %d byte(s) (DTLS)", ret);
 
@@ -1119,7 +768,8 @@ static int dtls_mainloop(worker_st * ws, struct timespec *tnow)
 			    ws->config->rekey_time / 2) {
 				oclog(ws, LOG_INFO,
 				      "client requested DTLS rehandshake too soon");
-				return -1;
+				ret = -1;
+				goto cleanup;
 			}
 
 			/* there is not much we can rehandshake on the DTLS channel,
@@ -1137,19 +787,18 @@ static int dtls_mainloop(worker_st * ws, struct timespec *tnow)
 			oclog(ws, LOG_DEBUG, "DTLS rehandshake completed");
 
 			ws->last_dtls_rehandshake = tnow->tv_sec;
-		} else if (ret > 0) {
-			l = ret;
+		} else if (ret >= 1) {
 			ws->udp_state = UP_ACTIVE;
 
 			if (bandwidth_update
-			    (&ws->b_rx, l - 1, ws->conn_mtu, tnow) != 0) {
+			    (&ws->b_rx, data.size - 1, ws->conn_mtu, tnow) != 0) {
 				ret =
-				    parse_dtls_data(ws, ws->buffer, l,
+				    parse_dtls_data(ws, data.data, data.size,
 						    tnow->tv_sec);
 				if (ret < 0) {
 					oclog(ws, LOG_INFO,
 					      "error parsing CSTP data");
-					return ret;
+					goto cleanup;
 				}
 			}
 		} else
@@ -1160,8 +809,10 @@ static int dtls_mainloop(worker_st * ws, struct timespec *tnow)
 		break;
 	case UP_SETUP:
 		ret = setup_dtls_connection(ws);
-		if (ret < 0)
-			return -1;
+		if (ret < 0) {
+			ret = -1;
+			goto cleanup;
+		}
 
 		gnutls_dtls_set_mtu(ws->dtls_session,
 				    ws->conn_mtu + ws->crypto_overhead);
@@ -1217,31 +868,54 @@ static int dtls_mainloop(worker_st * ws, struct timespec *tnow)
 		break;
 	}
 
-	return 0;
+	ret = 0;
+ cleanup:
+#ifdef ZERO_COPY
+ 	if (packet)
+	 	gnutls_packet_deinit(packet);
+#endif
+	return ret;
 }
 
 static int tls_mainloop(struct worker_st *ws, struct timespec *tnow)
 {
-	int ret, l;
+	int ret;
+	gnutls_datum_t data;
+#ifdef ZERO_COPY
+	gnutls_packet_t packet = NULL;
 
+	if (ws->session != NULL) {
+		ret = gnutls_record_recv_packet(ws->session, &packet);
+		if (ret > 0) {
+			gnutls_packet_get(packet, &data, NULL);
+		}
+	} else {
+		ret = recv(ws->conn_fd, ws->buffer, ws->buffer_size, 0);
+		data.data = ws->buffer;
+		data.size = ret;
+	}
+#else
 	ret = cstp_recv_nb(ws, ws->buffer, ws->buffer_size);
+	data.data = ws->buffer;
+	data.size = ret;
+#endif
 	FATAL_ERR_CMD(ws, ret, exit_worker(ws));
 
 	if (ret == 0) {		/* disconnect */
 		oclog(ws, LOG_DEBUG, "client disconnected");
-		return -1;
-	} else if (ret > 0) {
-		l = ret;
-		oclog(ws, LOG_TRANSFER_DEBUG, "received %d byte(s) (TLS)", l);
+		ret = -1;
+		goto cleanup;
+	} else if (ret >= 8) {
+		oclog(ws, LOG_TRANSFER_DEBUG, "received %d byte(s) (TLS)", data.size);
 
-		if (bandwidth_update(&ws->b_rx, l - 8, ws->conn_mtu, tnow) != 0) {
-			ret = parse_cstp_data(ws, ws->buffer, l, tnow->tv_sec);
+		if (bandwidth_update(&ws->b_rx, data.size - 8, ws->conn_mtu, tnow) != 0) {
+			ret = parse_cstp_data(ws, data.data, data.size, tnow->tv_sec);
 			if (ret < 0) {
 				oclog(ws, LOG_ERR, "error parsing CSTP data");
-				return ret;
+				goto cleanup;
 			}
 
-			if (ret == AC_PKT_DATA && ws->udp_state == UP_ACTIVE) {
+			if ((ret == AC_PKT_DATA || ret == AC_PKT_COMPRESSED) && ws->udp_state == UP_ACTIVE) {
 				/* client switched to TLS for some reason */
 				if (tnow->tv_sec - ws->udp_recv_time >
 				    UDP_SWITCH_TIME)
@@ -1256,7 +930,8 @@ static int tls_mainloop(struct worker_st *ws, struct timespec *tnow)
 		    ws->config->rekey_time / 2) {
 			oclog(ws, LOG_INFO,
 			      "client requested TLS rehandshake too soon");
-			return -1;
+			ret = -1;
+			goto cleanup;
 		}
 
 		oclog(ws, LOG_INFO,
@@ -1270,13 +945,23 @@ static int tls_mainloop(struct worker_st *ws, struct timespec *tnow)
 		oclog(ws, LOG_INFO, "TLS rehandshake completed");
 	}
 
-	return 0;
+	ret = 0;
+ cleanup:
+#ifdef ZERO_COPY
+ 	if (packet)
+	 	gnutls_packet_deinit(packet);
+#endif
+	return ret;
 }
 
 static int tun_mainloop(struct worker_st *ws, struct timespec *tnow)
 {
 	int ret, l, e;
 	unsigned tls_retry;
+	int dtls_type = AC_PKT_DATA;
+	int cstp_type = AC_PKT_DATA;
+	gnutls_datum_t dtls_to_send;
+	gnutls_datum_t cstp_to_send;
 
 	l = read(ws->tun_fd, ws->buffer + 8, ws->conn_mtu);
 	if (l < 0) {
@@ -1291,23 +976,60 @@ static int tun_mainloop(struct worker_st *ws, struct timespec *tnow)
 
 		return 0;
 	}
+
 	if (l == 0) {
 		oclog(ws, LOG_INFO, "TUN device returned zero");
 		return 0;
 	}
 
+
+	dtls_to_send.data = ws->buffer;
+	dtls_to_send.size = l;
+
+	cstp_to_send.data = ws->buffer;
+	cstp_to_send.size = l;
+
+	if (ws->udp_state == UP_ACTIVE && ws->dtls_selected_comp != NULL && l > ws->config->no_compress_limit) {
+		/* otherwise don't compress */
+		ret = ws->dtls_selected_comp->compress(ws->decomp+8, sizeof(ws->decomp)-8, ws->buffer+8, l);
+		oclog(ws, LOG_DEBUG, "compressed %d to %d\n", (int)l, ret);
+		if (ret > 0 && ret < l) {
+			dtls_to_send.data = ws->decomp;
+			dtls_to_send.size = ret;
+			dtls_type = AC_PKT_COMPRESSED;
+
+			if (ws->cstp_selected_comp) {
+				if (ws->cstp_selected_comp->id == ws->dtls_selected_comp->id) {
+					cstp_to_send.data = ws->decomp;
+					cstp_to_send.size = ret;
+					cstp_type = AC_PKT_COMPRESSED;
+				}
+			}
+		}
+	} else if (ws->cstp_selected_comp != NULL && l > ws->config->no_compress_limit) {
+		/* otherwise don't compress */
+		ret = ws->cstp_selected_comp->compress(ws->decomp+8, sizeof(ws->decomp)-8, ws->buffer+8, l);
+		oclog(ws, LOG_DEBUG, "compressed %d to %d\n", (int)l, ret);
+		if (ret > 0 && ret < l) {
+			cstp_to_send.data = ws->decomp;
+			cstp_to_send.size = ret;
+			cstp_type = AC_PKT_COMPRESSED;
+		}
+	}
+
 	/* only transmit if allowed */
-	if (bandwidth_update(&ws->b_tx, l, ws->conn_mtu, tnow)
+	if (bandwidth_update(&ws->b_tx, dtls_to_send.size, ws->conn_mtu, tnow)
 	    != 0) {
 		tls_retry = 0;
 
-		ws->tun_bytes_out += l;
 		oclog(ws, LOG_TRANSFER_DEBUG, "sending %d byte(s)\n", l);
+
 		if (ws->udp_state == UP_ACTIVE) {
 
-			ws->buffer[7] = AC_PKT_DATA;
+			ws->tun_bytes_out += dtls_to_send.size;
 
-			ret = dtls_send(ws, ws->buffer + 7, l + 1);
+			dtls_to_send.data[7] = dtls_type;
+			ret = dtls_send(ws, dtls_to_send.data + 7, dtls_to_send.size + 1);
 			GNUTLS_FATAL_ERR_CMD(ret, exit_worker(ws));
 
 			if (ret == GNUTLS_E_LARGE_PACKET) {
@@ -1323,16 +1045,18 @@ static int tun_mainloop(struct worker_st *ws, struct timespec *tnow)
 		}
 
 		if (ws->udp_state != UP_ACTIVE || tls_retry != 0) {
-			ws->buffer[0] = 'S';
-			ws->buffer[1] = 'T';
-			ws->buffer[2] = 'F';
-			ws->buffer[3] = 1;
-			ws->buffer[4] = l >> 8;
-			ws->buffer[5] = l & 0xff;
-			ws->buffer[6] = AC_PKT_DATA;
-			ws->buffer[7] = 0;
+			cstp_to_send.data[0] = 'S';
+			cstp_to_send.data[1] = 'T';
+			cstp_to_send.data[2] = 'F';
+			cstp_to_send.data[3] = 1;
+			cstp_to_send.data[4] = cstp_to_send.size >> 8;
+			cstp_to_send.data[5] = cstp_to_send.size & 0xff;
+			cstp_to_send.data[6] = cstp_type;
+			cstp_to_send.data[7] = 0;
 
-			ret = cstp_send(ws, ws->buffer, l + 8);
+			ws->tun_bytes_out += cstp_to_send.size;
+
+			ret = cstp_send(ws, cstp_to_send.data, cstp_to_send.size + 8);
 			FATAL_ERR_CMD(ws, ret, exit_worker(ws));
 		}
 		ws->last_nc_msg = tnow->tv_sec;
@@ -1515,16 +1239,8 @@ static int connect_handler(worker_st * ws)
 		}
 	}
 
-	/* If we are in CISCO client compatibility mode, do not send
-	 * any IPv6 information, unless the client can really handle it.
-	 */
-	if (ws->full_ipv6 == 0 && ws->config->cisco_client_compat != 0 &&
-	    req->user_agent_type != AGENT_OPENCONNECT) {
-		req->no_ipv6 = 1;
-	}
-
-	if (ws->vinfo.ipv6 && req->no_ipv6 == 0) {
-		oclog(ws, LOG_DEBUG, "sending IPv6 %s", ws->vinfo.ipv6);
+	if (ws->vinfo.ipv6 && req->no_ipv6 == 0 && ws->vinfo.ipv6_prefix != 0) {
+		oclog(ws, LOG_DEBUG, "sending IPv6 %s/%u", ws->vinfo.ipv6, ws->vinfo.ipv6_prefix);
 		if (ws->full_ipv6 && ws->vinfo.ipv6_prefix) {
 			ret =
 			    cstp_printf(ws,
@@ -1532,25 +1248,39 @@ static int connect_handler(worker_st * ws)
 				       ws->vinfo.ipv6, ws->vinfo.ipv6_prefix);
 			SEND_ERR(ret);
 		} else {
+			const char *net;
+
 			ret =
 			    cstp_printf(ws, "X-CSTP-Address: %s\r\n",
 				       ws->vinfo.ipv6);
 			SEND_ERR(ret);
-		}
 
-		if (ws->vinfo.ipv6_network && ws->vinfo.ipv6_prefix != 0) {
+			net = ws->vinfo.ipv6_network;
+			if (net == NULL)
+				net = ws->vinfo.ipv6;
+
 			ret =
-			    cstp_printf(ws,
-				       "X-CSTP-Netmask: %s/%u\r\n",
-					       ws->vinfo.ipv6_network, ws->vinfo.ipv6_prefix);
+			    cstp_printf(ws, "X-CSTP-Netmask: %s/%u\r\n",
+				        net, ws->vinfo.ipv6_prefix);
 			SEND_ERR(ret);
 		}
 	}
 
+	/* While anyconnect clients can handle the assignment
+	 * of an IPv6 address, they cannot handle routes or DNS
+	 * in IPv6. So we disable IPv6 after an IP is assigned. */
+	if (ws->full_ipv6 == 0 || req->user_agent_type != AGENT_OPENCONNECT)
+		req->no_ipv6 = 1;
+
 	for (i = 0; i < ws->vinfo.dns_size; i++) {
-		if (req->no_ipv6 != 0 && strchr(ws->vinfo.dns[i], ':') != 0)
+		if (strchr(ws->vinfo.dns[i], ':') != 0)
+			ip6 = 1;
+		else
+			ip6 = 0;
+
+		if (req->no_ipv6 != 0 && ip6 != 0)
 			continue;
-		if (req->no_ipv4 != 0 && strchr(ws->vinfo.dns[i], '.') != 0)
+		if (req->no_ipv4 != 0 && ip6 == 0)
 			continue;
 
 		ret =
@@ -1560,9 +1290,14 @@ static int connect_handler(worker_st * ws)
 	}
 
 	for (i = 0; i < ws->vinfo.nbns_size; i++) {
-		if (req->no_ipv6 != 0 && strchr(ws->vinfo.nbns[i], ':') != 0)
+		if (strchr(ws->vinfo.nbns[i], ':') != 0)
+			ip6 = 1;
+		else
+			ip6 = 0;
+
+		if (req->no_ipv6 != 0 && ip6 != 0)
 			continue;
-		if (req->no_ipv4 != 0 && strchr(ws->vinfo.nbns[i], '.') != 0)
+		if (req->no_ipv4 != 0 && ip6 == 0)
 			continue;
 
 		ret =
@@ -1572,6 +1307,16 @@ static int connect_handler(worker_st * ws)
 	}
 
 	for (i = 0; i < ws->config->split_dns_size; i++) {
+		if (strchr(ws->config->split_dns[i], ':') != 0)
+			ip6 = 1;
+		else
+			ip6 = 0;
+
+		if (req->no_ipv6 != 0 && ip6 != 0)
+			continue;
+		if (req->no_ipv4 != 0 && ip6 == 0)
+			continue;
+
 		oclog(ws, LOG_DEBUG, "adding split DNS %s",
 		      ws->config->split_dns[i]);
 		ret =
@@ -1857,7 +1602,7 @@ static int connect_handler(worker_st * ws)
 
 		if (ws->config->output_buffer > 0) {
 			t = MIN(2048, ws->conn_mtu * ws->config->output_buffer);
-			setsockopt(ws->udp_fd, SOL_SOCKET, SO_SNDBUF, &t,
+			setsockopt(ws->dtls_tptr.fd, SOL_SOCKET, SO_SNDBUF, &t,
 				   sizeof(t));
 			if (ret == -1)
 				oclog(ws, LOG_DEBUG,
@@ -1865,7 +1610,7 @@ static int connect_handler(worker_st * ws)
 				      t);
 		}
 
-		set_net_priority(ws, ws->udp_fd, ws->config->net_priority);
+		set_net_priority(ws, ws->dtls_tptr.fd, ws->config->net_priority);
 	}
 
 	/* hack for openconnect. It uses only a single MTU value */
@@ -1888,6 +1633,23 @@ static int connect_handler(worker_st * ws)
 		SEND_ERR(ret);
 	}
 
+	/* send any compression methods */
+	if (ws->dtls_selected_comp) {
+		oclog(ws, LOG_DEBUG, "selected DTLS compression method %s\n", ws->dtls_selected_comp->name);
+		ret =
+		    cstp_printf(ws, "X-DTLS-Content-Encoding: %s\r\n",
+			        ws->dtls_selected_comp->name);
+		SEND_ERR(ret);
+	}
+
+	if (ws->cstp_selected_comp) {
+		oclog(ws, LOG_DEBUG, "selected CSTP compression method %s\n", ws->cstp_selected_comp->name);
+		ret =
+		    cstp_printf(ws, "X-CSTP-Content-Encoding: %s\r\n",
+			        ws->cstp_selected_comp->name);
+		SEND_ERR(ret);
+	}
+
 	ret = cstp_puts(ws, "\r\n");
 	SEND_ERR(ret);
 
@@ -1907,17 +1669,6 @@ static int connect_handler(worker_st * ws)
 	/* worker main loop  */
 	for (;;) {
 		FD_ZERO(&rfds);
-
-		FD_SET(ws->conn_fd, &rfds);
-		FD_SET(ws->cmd_fd, &rfds);
-		FD_SET(ws->tun_fd, &rfds);
-		max = MAX(ws->cmd_fd, ws->conn_fd);
-		max = MAX(max, ws->tun_fd);
-
-		if (ws->udp_state > UP_WAIT_FD) {
-			FD_SET(ws->udp_fd, &rfds);
-			max = MAX(max, ws->udp_fd);
-		}
 
 		if (terminate != 0) {
  terminate:
@@ -1942,14 +1693,27 @@ static int connect_handler(worker_st * ws)
 		else
 			tls_pending = 0;
 
-		if (ws->dtls_session != NULL && ws->udp_state > UP_WAIT_FD) {
-			dtls_pending =
-			    gnutls_record_check_pending(ws->dtls_session);
+		if (ws->udp_state > UP_WAIT_FD) {
+			dtls_pending = dtls_pull_buffer_non_empty(&ws->dtls_tptr);
+			if (ws->dtls_session != NULL)
+				dtls_pending +=
+				    gnutls_record_check_pending(ws->dtls_session);
 		} else {
 			dtls_pending = 0;
 		}
 
 		if (tls_pending == 0 && dtls_pending == 0) {
+			FD_SET(ws->conn_fd, &rfds);
+			FD_SET(ws->cmd_fd, &rfds);
+			FD_SET(ws->tun_fd, &rfds);
+			max = MAX(ws->cmd_fd, ws->conn_fd);
+			max = MAX(max, ws->tun_fd);
+
+			if (ws->udp_state > UP_WAIT_FD) {
+				FD_SET(ws->dtls_tptr.fd, &rfds);
+				max = MAX(max, ws->dtls_tptr.fd);
+			}
+
 #ifdef HAVE_PSELECT
 			tv.tv_nsec = 0;
 			tv.tv_sec = 10;
@@ -1980,21 +1744,18 @@ static int connect_handler(worker_st * ws)
 			ret = tun_mainloop(ws, &tnow);
 			if (ret < 0)
 				goto exit;
-
 		}
 
 		/* read pending data from TCP channel */
 		if (FD_ISSET(ws->conn_fd, &rfds) || tls_pending != 0) {
-
 			ret = tls_mainloop(ws, &tnow);
 			if (ret < 0)
 				goto exit;
-
 		}
 
 		/* read data from UDP channel */
-		if (ws->udp_state > UP_WAIT_FD
-		    && (FD_ISSET(ws->udp_fd, &rfds) || dtls_pending != 0)) {
+		if (ws->udp_state > UP_WAIT_FD &&
+		    (FD_ISSET(ws->dtls_tptr.fd, &rfds) || dtls_pending != 0)) {
 
 			ret = dtls_mainloop(ws, &tnow);
 			if (ret < 0)
@@ -2012,7 +1773,6 @@ static int connect_handler(worker_st * ws)
 				goto exit;
 			}
 		}
-
 	}
 
 	return 0;
@@ -2038,6 +1798,8 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 		      uint8_t head, uint8_t * buf, size_t buf_size, time_t now)
 {
 	int ret, e;
+	uint8_t *plain = buf;
+	ssize_t plain_size = buf_size;
 
 	switch (head) {
 	case AC_PKT_DPD_RESP:
@@ -2084,10 +1846,36 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 		oclog(ws, LOG_DEBUG, "received BYE packet; exiting");
 		exit_worker(ws);
 		break;
+	case AC_PKT_COMPRESSED:
+		/* decompress */
+		if (ws->session == ts) { /* CSTP */
+			if (ws->cstp_selected_comp == NULL) {
+				oclog(ws, LOG_ERR, "received compression data but no compression was negotiated");
+				return -1;
+			}
+
+			plain_size = ws->cstp_selected_comp->decompress(ws->decomp, sizeof(ws->decomp), buf, buf_size);
+			oclog(ws, LOG_DEBUG, "decompressed %d to %d\n", (int)buf_size, (int)plain_size);
+		} else { /* DTLS */
+			if (ws->dtls_selected_comp == NULL) {
+				oclog(ws, LOG_ERR, "received compression data but no compression was negotiated");
+				return -1;
+			}
+
+			plain_size = ws->dtls_selected_comp->decompress(ws->decomp, sizeof(ws->decomp), buf, buf_size);
+			oclog(ws, LOG_DEBUG, "decompressed %d to %d\n", (int)buf_size, (int)plain_size);
+		}
+
+		if (plain_size <= 0) {
+			oclog(ws, LOG_ERR, "decompression error %d", (int)plain_size);
+			return -1;
+		}
+		plain = ws->decomp;
+		/* fall through */
 	case AC_PKT_DATA:
 		oclog(ws, LOG_TRANSFER_DEBUG, "writing %d byte(s) to TUN",
 		      (int)buf_size);
-		ret = force_write(ws->tun_fd, buf, buf_size);
+		ret = force_write(ws->tun_fd, plain, plain_size);
 		if (ret == -1) {
 			e = errno;
 			oclog(ws, LOG_ERR, "could not write data to tun: %s",

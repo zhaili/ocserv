@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Nikos Mavrogiannopoulos
+ * Copyright (C) 2013-2015 Nikos Mavrogiannopoulos
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,10 @@
 #include <vpn.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+/* for recvmsg */
+#include <netinet/in.h>
+#include <netinet/ip.h>
+
 #include "common.h"
 
 const char* cmd_request_to_str(unsigned _cmd)
@@ -56,6 +60,8 @@ static char tmp[32];
 	case CMD_CLI_STATS:
 		return "cli stats";
 
+	case SM_CMD_CLI_STATS:
+		return "sm: cli stats";
 	case SM_CMD_AUTH_INIT:
 		return "sm: auth init";
 	case SM_CMD_AUTH_CONT:
@@ -225,6 +231,34 @@ char* ipv6_prefix_to_mask(void *pool, unsigned prefix)
 			return talloc_strdup(pool, "ffff:ffff:ffff:ffff:ffff:ffff:ffff::");
 		case 128:
 			return talloc_strdup(pool, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+		default:
+			return NULL;
+	}
+}
+
+/* returns an allocated string with the mask to apply for the prefix
+ */
+char* ipv4_prefix_to_mask(void *pool, unsigned prefix)
+{
+	switch (prefix) {
+		case 8:
+			return talloc_strdup(pool, "255.0.0.0");
+		case 16:
+			return talloc_strdup(pool, "255.255.0.0");
+		case 24:
+			return talloc_strdup(pool, "255.255.255.0");
+		case 25:
+			return talloc_strdup(pool, "255.255.255.128");
+		case 26:
+			return talloc_strdup(pool, "255.255.255.192");
+		case 27:
+			return talloc_strdup(pool, "255.255.255.224");
+		case 28:
+			return talloc_strdup(pool, "255.255.255.240");
+		case 29:
+			return talloc_strdup(pool, "255.255.255.248");
+		case 30:
+			return talloc_strdup(pool, "255.255.255.252");
 		default:
 			return NULL;
 	}
@@ -417,3 +451,136 @@ void *_talloc_size2(void *ctx, size_t size)
 {
 	return talloc_size(ctx, size);
 }
+
+/* like recvfrom but also returns the address of our interface.
+ *
+ * @def_port: is provided to fill in the missing port number
+ *   in our_addr.
+ */
+ssize_t oc_recvfrom_at(int sockfd, void *buf, size_t len, int flags,
+                    struct sockaddr *src_addr, socklen_t *addrlen,
+                    struct sockaddr *our_addr, socklen_t *our_addrlen,
+                    int def_port)
+{
+int ret;
+char cmbuf[256];
+struct iovec iov = { buf, len };
+struct cmsghdr *cmsg;
+struct msghdr mh = {
+	.msg_name = src_addr,
+	.msg_namelen = *addrlen,
+	.msg_iov = &iov,
+	.msg_iovlen = 1,
+	.msg_control = cmbuf,
+	.msg_controllen = sizeof(cmbuf),
+};
+
+	ret = recvmsg(sockfd, &mh, 0);
+	if (ret < 0) {
+		return -1;
+	}
+
+	/* find our address */
+	for (cmsg = CMSG_FIRSTHDR(&mh); cmsg != NULL; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+#if defined(IP_PKTINFO)
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
+			struct in_pktinfo *pi = CMSG_DATA(cmsg);
+			struct sockaddr_in *a = (struct sockaddr_in*)our_addr;
+
+			if (*our_addrlen < sizeof(struct sockaddr_in))
+				return -1;
+
+			a->sin_family = AF_INET;
+			memcpy(&a->sin_addr, &pi->ipi_addr, sizeof(struct in_addr));
+			a->sin_port = htons(def_port);
+			*our_addrlen = sizeof(struct sockaddr_in);
+			break;
+		}
+#elif defined(IP_RECVDSTADDR)
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_RECVDSTADDR) {
+			struct in_addr *pi = CMSG_DATA(cmsg);
+			struct sockaddr_in *a = (struct sockaddr_in*)our_addr;
+
+			if (*our_addrlen < sizeof(struct sockaddr_in))
+				return -1;
+
+			a->sin_family = AF_INET;
+			memcpy(&a->sin_addr, &pi->ipi_addr, sizeof(struct in_addr));
+			a->sin_port = htons(def_port);
+			*our_addrlen = sizeof(struct sockaddr_in);
+			break;
+		}
+#endif
+#ifdef IPV6_RECVPKTINFO
+		if (cmsg->cmsg_level != IPPROTO_IPV6 || cmsg->cmsg_type != IPV6_RECVPKTINFO) {
+			struct in6_pktinfo *pi = CMSG_DATA(cmsg);
+			struct sockaddr_in6 *a = (struct sockaddr_in6*)our_addr;
+
+			if (*our_addrlen < sizeof(struct sockaddr_in6))
+				return -1;
+
+			a->sin6_family = AF_INET6;
+			memcpy(&a->sin6_addr, &pi->ipi6_addr, sizeof(struct in6_addr));
+			a->sin6_port = htons(def_port);
+			*our_addrlen = sizeof(struct sockaddr_in6);
+			break;
+		}
+#endif
+	}
+
+	return ret;
+}
+
+#ifndef HAVE_STRLCPY
+
+/*
+ * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Copyright 2006  The FreeRADIUS server project
+ */
+
+/*
+ * Copy src to string dst of size siz.  At most siz-1 characters
+ * will be copied.  Always NUL terminates (unless siz == 0).
+ * Returns strlen(src); if retval >= siz, truncation occurred.
+ */
+size_t
+oc_strlcpy(char *dst, char const *src, size_t siz)
+{
+    char *d = dst;
+    char const *s = src;
+    size_t n = siz;
+
+    /* Copy as many bytes as will fit */
+    if (n != 0 && --n != 0) {
+        do {
+            if ((*d++ = *s++) == 0)
+                break;
+        } while (--n != 0);
+    }
+
+    /* Not enough room in dst, add NUL and traverse rest of src */
+    if (n == 0) {
+        if (siz != 0)
+            *d = '\0';      /* NUL-terminate dst */
+        while (*s++)
+            ;
+    }
+
+    return(s - src - 1);    /* count does not include NUL */
+}
+
+#endif
+

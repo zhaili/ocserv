@@ -26,23 +26,9 @@ if [ $? != 0 ];then
 	exit 77
 fi
 
-if test -x /usr/bin/docker;then
-DOCKER=/usr/bin/docker
-else
-DOCKER=/usr/bin/docker.io
-fi
-
-if ! test -x $DOCKER;then
-	echo "The docker program is needed to perform this test"
-	exit 77
-fi
-
-if ! test -f /etc/debian_version;then
-	echo "******************************************************"
-	echo "This test requires compiling ocserv in a Debian system"
-	echo "******************************************************"
-	exit 77
-fi
+UNIX=1
+IMAGE=ocserv-test2
+. ./docker-common.sh
 
 stop() {
 	$DOCKER stop test_unix
@@ -50,26 +36,7 @@ stop() {
 	exit 1
 }
 
-$DOCKER pull tianon/debian:jessie
-if test $? != 0;then
-	echo "Cannot pull docker image"
-	exit 1
-fi
-
-cp ../src/ocserv ../src/ocpasswd ../src/occtl docker-ocserv/
-
-cp docker-ocserv/Dockerfile-unix docker-ocserv/Dockerfile
-$DOCKER build -t ocserv-test2 docker-ocserv/
-#$DOCKER build --no-cache=true -t ocserv-test2 docker-ocserv/
-if test $? != 0;then
-	echo "Cannot build docker image"
-	exit 1
-fi
-
-$DOCKER stop test_unix >/dev/null 2>&1
-$DOCKER rm test_unix >/dev/null 2>&1
-
-$DOCKER run -P --privileged=true -p 6000:6000/udp -p 6001:6001/udp -p 22 -p 6551:6551/udp --tty=false -d --name test_unix ocserv-test2
+$DOCKER run -P --privileged=true -p 6000:6000/udp -p 6001:6001/udp -p 22 -p 6551:6551/udp --tty=false -d --name test_unix $IMAGE
 if test $? != 0;then
 	echo "Cannot run docker image"
 	exit 1
@@ -94,14 +61,14 @@ rm -f pass.tmp
 sleep 5
 
 # The client IP depends on the username so it shouldn't change.
-ping -w 5 192.168.1.190
+ping -w 5 192.168.99.190
 if test $? != 0;then
 	kill $PID
 	echo "Cannot ping ocserv"
 	stop
 fi
 
-ping -w 5 192.168.1.190 -s 1500
+ping -w 5 192.168.99.190 -s 1500
 if test $? != 0;then
 	kill $PID
 	echo "Cannot ping ocserv"
@@ -115,14 +82,14 @@ printf "echo root" >>echo-admin.tmp
 printf "\n" >>echo-admin.tmp
 chmod 755 echo-admin.tmp
 export SSH_ASKPASS="./echo-admin.tmp"
-setsid ssh -T -F config.tmp root@192.168.1.190 occtl show user test >out.tmp 2>&1
+setsid ssh -T -F config.tmp root@192.168.99.190 occtl show user test >out.tmp 2>&1
 cat out.tmp
 
 printf "#\!/bin/sh\n" >echo-admin.tmp
 printf "echo root" >>echo-admin.tmp
 printf "\n" >>echo-admin.tmp
 chmod 755 echo-admin.tmp
-setsid ssh -T -F config.tmp root@192.168.1.190 occtl show user test >out.tmp 2>&1
+setsid ssh -T -F config.tmp root@192.168.99.190 occtl show user test >out.tmp 2>&1
 cat out.tmp
 rm -f echo-admin.tmp
 rm -f config.tmp
@@ -140,14 +107,14 @@ rm -f out.tmp
 # There is an issue in nuttcp that makes it crash under docker if
 # /proc/sys/net/ipv4/tcp_adv_win_scale does not exist.
 
-#nuttcp -T 10 -t 192.168.1.190
+#nuttcp -T 10 -t 192.168.99.190
 #if test $? != 0;then
 #	kill $PID
 #	echo "Cannot send to ocserv"
 #	stop
 #fi
 
-#nuttcp -T 10 -r 192.168.1.190
+#nuttcp -T 10 -r 192.168.99.190
 #if test $? != 0;then
 #	kill $PID
 #	echo "Cannot recv from ocserv"
