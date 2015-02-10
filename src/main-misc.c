@@ -46,7 +46,6 @@
 #include <proc-search.h>
 #include <ipc.pb-c.h>
 #include <script-list.h>
-#include <main-sup-config.h>
 
 #ifdef HAVE_MALLOC_TRIM
 # include <malloc.h>
@@ -75,7 +74,7 @@ int set_tun_mtu(main_server_st * s, struct proc_st *proc, unsigned mtu)
 		return -1;
 
 	memset(&ifr, 0, sizeof(ifr));
-	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", name);
+	strlcpy(ifr.ifr_name, name, IFNAMSIZ);
 	ifr.ifr_mtu = mtu;
 
 	ret = ioctl(fd, SIOCSIFMTU, &ifr);
@@ -86,6 +85,7 @@ int set_tun_mtu(main_server_st * s, struct proc_st *proc, unsigned mtu)
 		ret = -1;
 		goto fail;
 	}
+	proc->mtu = mtu;
 
 	ret = 0;
  fail:
@@ -168,10 +168,8 @@ int session_cmd(main_server_st * s, struct proc_st *proc, unsigned open)
 	int sd, ret, e;
 	SecAuthSessionMsg ireq = SEC_AUTH_SESSION_MSG__INIT;
 	SecAuthSessionReplyMsg *msg = NULL;
-	unsigned type;
-
-	if (s->config->session_control == 0)
-		return 0;
+	unsigned type, i;
+	PROTOBUF_ALLOCATOR(pa, proc);
 
 	if (open)
 		type = SM_CMD_AUTH_SESSION_OPEN;
@@ -198,6 +196,12 @@ int session_cmd(main_server_st * s, struct proc_st *proc, unsigned open)
 		return -1;
 	}
 
+	ireq.uptime = time(0)-proc->conn_time;
+	ireq.has_uptime = 1;
+	ireq.bytes_in = proc->bytes_in;
+	ireq.has_bytes_in = 1;
+	ireq.bytes_out = proc->bytes_out;
+	ireq.has_bytes_out = 1;
 	ireq.sid.data = proc->sid;
 	ireq.sid.len = sizeof(proc->sid);
 
@@ -227,6 +231,86 @@ int session_cmd(main_server_st * s, struct proc_st *proc, unsigned open)
 			mslog(s, proc, LOG_INFO, "could not initiate session for '%s'", proc->username);
 			return -1;
 		}
+
+		/* fill in group_cfg_st */
+		if (msg->has_no_udp)
+			proc->config.no_udp = msg->no_udp;
+
+		if (msg->has_deny_roaming)
+			proc->config.deny_roaming = msg->deny_roaming;
+
+		if (msg->has_require_cert)
+			proc->config.require_cert = msg->require_cert;
+
+		if (msg->has_ipv6_prefix)
+			proc->config.ipv6_prefix = msg->ipv6_prefix;
+
+		if (msg->rx_per_sec)
+			proc->config.rx_per_sec = msg->rx_per_sec;
+		if (msg->tx_per_sec)
+			proc->config.tx_per_sec = msg->tx_per_sec;
+
+		if (msg->net_priority)
+			proc->config.net_priority = msg->net_priority;
+
+		if (msg->ipv4_net) {
+			proc->config.ipv4_network = talloc_strdup(proc, msg->ipv4_net);
+		}
+		if (msg->ipv4_netmask) {
+			proc->config.ipv4_netmask = talloc_strdup(proc, msg->ipv4_netmask);
+		}
+		if (msg->ipv6_net) {
+			proc->config.ipv6_network = talloc_strdup(proc, msg->ipv6_net);
+		}
+
+		if (msg->cgroup) {
+			proc->config.cgroup = talloc_strdup(proc, msg->cgroup);
+		}
+
+		if (msg->xml_config_file) {
+			proc->config.xml_config_file = talloc_strdup(proc, msg->xml_config_file);
+		}
+
+		if (msg->explicit_ipv4) {
+			proc->config.explicit_ipv4 = talloc_strdup(proc, msg->explicit_ipv4);
+		}
+
+		if (msg->explicit_ipv6) {
+			proc->config.explicit_ipv6 = talloc_strdup(proc, msg->explicit_ipv6);
+		}
+
+		if (msg->n_routes > 0) {
+			proc->config.routes = talloc_size(proc, sizeof(char*)*msg->n_routes);
+			for (i=0;i<msg->n_routes;i++) {
+				proc->config.routes[i] = talloc_strdup(proc, msg->routes[i]);
+			}
+			proc->config.routes_size = msg->n_routes;
+		}
+
+		if (msg->n_iroutes > 0) {
+			proc->config.iroutes = talloc_size(proc, sizeof(char*)*msg->n_iroutes);
+			for (i=0;i<msg->n_iroutes;i++) {
+				proc->config.iroutes[i] = talloc_strdup(proc, msg->iroutes[i]);
+			}
+			proc->config.iroutes_size = msg->n_iroutes;
+		}
+
+		if (msg->n_dns > 0) {
+			proc->config.dns = talloc_size(proc, sizeof(char*)*msg->n_dns);
+			for (i=0;i<msg->n_dns;i++) {
+				proc->config.dns[i] = talloc_strdup(proc, msg->dns[i]);
+			}
+			proc->config.dns_size = msg->n_dns;
+		}
+
+		if (msg->n_nbns > 0) {
+			proc->config.nbns = talloc_size(proc, sizeof(char*)*msg->n_nbns);
+			for (i=0;i<msg->n_nbns;i++) {
+				proc->config.nbns[i] = talloc_strdup(proc, msg->nbns[i]);
+			}
+			proc->config.nbns_size = msg->n_nbns;
+		}
+		sec_auth_session_reply_msg__free_unpacked(msg, &pa);
 	} else {
 		close(sd);
 	}
@@ -262,7 +346,7 @@ void remove_proc(main_server_st * s, struct proc_st *proc, unsigned k)
 	}
 
 	/* close any pending sessions */
-	if (s->config->session_control != 0 && proc->active_sid) {
+	if (proc->active_sid) {
 		session_close(s, proc);
 	}
 
@@ -273,26 +357,17 @@ void remove_proc(main_server_st * s, struct proc_st *proc, unsigned k)
 	proc->pid = -1;
 
 	remove_iroutes(s, proc);
-	if (s->config_module) {
-		s->config_module->clear_sup_config(&proc->config);
-	}
 
 	if (proc->ipv4 || proc->ipv6)
 		remove_ip_leases(s, proc);
 
 	/* expire any available cookies */
 	if (proc->cookie_ptr) {
-		unsigned timeout = s->config->cookie_timeout;
-
 		proc->cookie_ptr->proc = NULL;
-		if (s->config->session_control != 0) {
-			/* if we use session control and we closed the session we 
-			 * need to invalidate the cookie, so that a new session is 
-			 * used on the next connection */
-			proc->cookie_ptr->expiration = 1;
-		} else {
-			proc->cookie_ptr->expiration = time(0) + timeout;
-		}
+		/* if we use session control and we closed the session we 
+		 * need to invalidate the cookie, so that a new session is 
+		 * used on the next connection */
+		proc->cookie_ptr->expiration = 1;
 	}
 
 	close_tun(s, proc);
@@ -307,7 +382,7 @@ static int accept_user(main_server_st * s, struct proc_st *proc, unsigned cmd)
 	int ret;
 	const char *group;
 
-	mslog(s, proc, LOG_DEBUG, "accepting user '%s'", proc->username);
+	mslog(s, proc, LOG_DEBUG, "accepting user");
 
 	/* check for multiple connections */
 	ret = check_multiple_users(s, proc);
@@ -510,17 +585,20 @@ int handle_commands(main_server_st * s, struct proc_st *proc)
 			}
 
 			if (tmsg->tls_ciphersuite)
-				snprintf(proc->tls_ciphersuite,
-					 sizeof(proc->tls_ciphersuite), "%s",
-					 tmsg->tls_ciphersuite);
+				strlcpy(proc->tls_ciphersuite, tmsg->tls_ciphersuite,
+					 sizeof(proc->tls_ciphersuite));
 			if (tmsg->dtls_ciphersuite)
-				snprintf(proc->dtls_ciphersuite,
-					 sizeof(proc->dtls_ciphersuite), "%s",
-					 tmsg->dtls_ciphersuite);
+				strlcpy(proc->dtls_ciphersuite, tmsg->dtls_ciphersuite,
+					 sizeof(proc->dtls_ciphersuite));
+			if (tmsg->cstp_compr)
+				strlcpy(proc->cstp_compr, tmsg->cstp_compr,
+					 sizeof(proc->cstp_compr));
+			if (tmsg->dtls_compr)
+				strlcpy(proc->dtls_compr, tmsg->dtls_compr,
+					 sizeof(proc->dtls_compr));
 			if (tmsg->user_agent)
-				snprintf(proc->user_agent,
-					 sizeof(proc->user_agent), "%s",
-					 tmsg->user_agent);
+				strlcpy(proc->user_agent, tmsg->user_agent,
+					 sizeof(proc->user_agent));
 
 			session_info_msg__free_unpacked(tmsg, &pa);
 		}
@@ -689,8 +767,7 @@ void run_sec_mod(main_server_st * s)
 		snprintf(s->full_socket_file, sizeof(s->full_socket_file), "%s/%s",
 			 s->config->chroot_dir, s->socket_file);
 	} else {
-		snprintf(s->full_socket_file, sizeof(s->full_socket_file), "%s",
-			 s->socket_file);
+		strlcpy(s->full_socket_file, s->socket_file, sizeof(s->full_socket_file));
 	}
 	p = s->full_socket_file;
 
@@ -730,7 +807,7 @@ void put_into_cgroup(main_server_st * s, const char *_cgroup, pid_t pid)
 
 #ifdef __linux__
 	/* format: cpu,memory:cgroup-name */
-	snprintf(cgroup, sizeof(cgroup), "%s", _cgroup);
+	strlcpy(cgroup, _cgroup, sizeof(cgroup));
 
 	name = strchr(cgroup, ':');
 	if (name == NULL) {

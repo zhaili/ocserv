@@ -126,6 +126,7 @@ int pret;
 
 	pret = pam_authenticate(pctx->ph, 0);
 	if (pret != PAM_SUCCESS) {
+		syslog(LOG_INFO, "PAM authenticate error: %s", pam_strerror(pctx->ph, pret));
 		pctx->cr_ret = pret;
 		goto wait;
 	}
@@ -140,6 +141,7 @@ int pret;
 	}
 	
 	if (pret != PAM_SUCCESS) {
+		syslog(LOG_INFO, "PAM acct-mgmt error: %s", pam_strerror(pctx->ph, pret));
 		pctx->cr_ret = pret;
 		goto wait;
 	}
@@ -179,7 +181,7 @@ struct pam_ctx_st * pctx;
 	if (pctx->cr == NULL)
 		goto fail2;
 
-	snprintf(pctx->username, sizeof(pctx->username), "%s", user);
+	strlcpy(pctx->username, user, sizeof(pctx->username));
 
 	if (ip != NULL)
 		pam_set_item(pctx->ph, PAM_RHOST, ip);
@@ -219,9 +221,9 @@ int size;
 	if (msg != NULL) {
 		if (pctx->msg.length == 0)
                         if (pctx->changing)
-				snprintf(msg, msg_size, "Please enter the new password.");
+				strlcpy(msg, "Please enter the new password.", msg_size);
                         else
-				snprintf(msg, msg_size, "Please enter your password.");
+				strlcpy(msg, "Please enter your password.", msg_size);
 		else {
 			size = MIN(msg_size-1, pctx->msg.length);
 			memcpy(msg, pctx->msg.data, size);
@@ -291,7 +293,7 @@ unsigned found;
 			for (i=0;i<ngroups;i++) {
 				grp = getgrgid(groups[i]);
 				if (grp != NULL && strcmp(suggested, grp->gr_name) == 0) {
-					snprintf(groupname, groupname_size, "%s", grp->gr_name);
+					strlcpy(groupname, grp->gr_name, groupname_size);
 					found = 1;
 					break;
 				}
@@ -306,7 +308,7 @@ unsigned found;
 		} else {
 			struct group* grp = getgrgid(pwd->pw_gid);
 			if (grp != NULL)
-				snprintf(groupname, groupname_size, "%s", grp->gr_name);
+				strlcpy(groupname, grp->gr_name, groupname_size);
 		}
 	}
 
@@ -328,7 +330,7 @@ int pret;
 	}
 	
 	if (user != NULL) {
-		snprintf(username, username_size, "%s", user);
+		strlcpy(username, user, username_size);
 
 		return 0;
 	}
@@ -348,7 +350,7 @@ struct pam_ctx_st * pctx = ctx;
 	talloc_free(pctx);
 }
 
-static int pam_auth_open_session(void* ctx)
+static int pam_auth_open_session(void* ctx, const void *sid, unsigned sid_size)
 {
 struct pam_ctx_st * pctx = ctx;
 int pret;
@@ -367,7 +369,7 @@ int pret;
 	return 0;
 }
 
-static void pam_auth_close_session(void* ctx)
+static void pam_auth_close_session(void* ctx, stats_st *stats)
 {
 struct pam_ctx_st * pctx = ctx;
 int pret;

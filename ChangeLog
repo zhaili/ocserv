@@ -1,10 +1,611 @@
+2015-01-20  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.9.0
+
+2015-01-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-01-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/system.c: properly disable safe_fork
+
+2015-01-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: corrected isolate-workers typo
+
+2015-01-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/ocpasswd.c: ocpasswd: attempt to use sha2crypt
+	only in glibc uclibc's crypt(3) is so dumb it will not error if $5$ is specified
+	as salt, but not supported.
+
+2015-01-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocpasswd.c: ocpasswd: corrected fallback to MD5 crypt
+
+2015-01-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/ocserv-unix.conf: tests: enable compression in
+	the unix test
+
+2015-01-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: disable linux namespaces by default
+
+2015-01-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/system.c, src/system.h: only define safe_fork() in systems
+	with linux namespaces
+
+2015-01-18  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-ctl-unix.c, src/sec-mod.c, src/system.c, src/system.h: 
+	silence debugging messages from sec-mod when not in debug
+
+2015-01-18  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ocserv-args.def: doc update
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-http.c, src/worker-vpn.c, src/worker.h: move more
+	http-related functions to worker-http
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/lzs.c, src/lzs.h: updated copyright information in LZS code
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-http.c: combined parsing of CSTP and DTLS encoding
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/http-heads.gperf, src/worker-http.c,
+	src/worker.h: Replace header_check() mess with a gperf table
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/worker-extras.c, src/worker-http.c,
+	src/worker-vpn.c, src/worker.h: Moved HTTP parts of worker to
+	worker-http.c
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS, doc/sample.config, src/config.c, src/ocserv-args.def,
+	src/vpn.h, src/worker-extras.c: Compression is disabled by default
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/lzs.h: lzs.h: added license
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/lzs.c, src/lzs.h, src/worker-extras.c: Added
+	support for LZS
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def, src/vpn.h: increased
+	MIN_NO_COMPRESS_LIMIT
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/Dockerfile-debian-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-tcp: tests: install lz4 on
+	docker images
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: fixed compression to use the correct start of
+	buffer
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: only enforce undumpable if we are not debugging
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ctl.proto, src/ipc.proto, src/main-ctl-unix.c,
+	src/main-misc.c, src/main.h, src/occtl-unix.c, src/worker-vpn.c: 
+	report the compression algorithms to occtl
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def, src/vpn.h,
+	src/worker-vpn.c: Made the no-compress-limit configurable
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-extras.c, src/worker-vpn.c: Allow compression to fail,
+	and in that case send uncompressed packets That allows to cancel compression early, if it seems to expand the
+	packet. Suggested by David Woodhouse.
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: only transmit a compressed packet, if it reduces
+	the size
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/ocserv-args.def, src/vpn.h, src/worker-extras.c: 
+	added option to disable compression
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-extras.c, src/worker-vpn.c, src/worker.h: Moved
+	negotiation/parsing of parameters using HTTP headers to
+	worker-extras.c
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/Makefile.am, src/vpn.h, src/worker-vpn.c,
+	src/worker.h: Added support for LZ4 compression
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: corrected typo
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/config.c, src/main.c, src/ocserv-args.def,
+	src/vpn.h, src/worker-vpn.c: replaced use-seccomp by isolate-workers That, if enabled, includes the Linux namespaces restrictions into
+	workers.
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: reorganized to avoid compiler warnings
+
+2015-01-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/system.c: include linux/sched.h to compile on
+	systems with older libc
+
+2015-01-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/system.c: remove the CLONE_NEWNET isolation option as it's
+	performance cost is too high
+
+2015-01-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: typo fix
+
+2015-01-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/haproxy.cfg: tests: remove all error file
+	references from haproxy.cfg These files don't exist in Fedora.
+
+2015-01-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/config.c, src/main.c, src/system.c,
+	src/system.h: In linux run the server in it's own container with
+	separate IPC and PID namespace
+
+2015-01-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-common.sh: tests: attempt to use lockfile-create if
+	it exists
+
+2015-01-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/system.c, src/system.h, src/worker-vpn.c: do not allow the
+	processes to be traced in linux That would prevent a worker process tracing one from another user.
+
+2015-01-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-misc.c, src/worker-vpn.c: removed unneeded variable
+
+2015-01-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: corrected check for non-empty pull buffer
+
+2015-01-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-misc.c: prevent a memory leak when multiple fds are
+	received in short time
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl-unix.c: occtl: re-arranged user-agent and MTU printing
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl-dbus.c, src/occtl-unix.c: added more precise match of
+	version
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ip-lease.c, src/main-auth.c, src/main-misc.c: avoid repeating
+	username in logs
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: do not enforce PFS on
+	default strings That allows legacy clients connect.
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c, src/worker-misc.c, src/worker-vpn.c, src/worker.h: 
+	simplified DTLS fd handling and dtls_pull()
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c, src/worker-misc.c: always forward the first message
+	when forwarding fd
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/main.c: cleanups
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c: only set IPV6_RECVPKTINFO on IPv6 sockets
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/common.h, src/main.c: simplified
+	forward_udp_to_owner() by introducing oc_recvfrom_at()
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ctl.proto, src/main-ctl-unix.c, src/main-misc.c, src/main.h,
+	src/occtl-unix.c: save MTU in main, and report it to occtl
+
+2015-01-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ipc.proto, src/main.c, src/worker-misc.c, src/worker-vpn.c,
+	src/worker.h: bind to the address we received UDP on That in addition allocates a new UDP socket per client, and forwards
+	the initial client hello to the worker process as auxillary data.
+	That, eliminates the need to re-open the main server's UDP socket
+	per client connection.
+
+2015-01-07  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: when compiling with gnutls 3.3.5 or later use
+	the zero copy recv API
+
+2015-01-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c: radius: added safety checks in the parsing of
+	Framed-IPv6-Prefix
+
+2015-01-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c: radius: use separate types for ipv4 and ipv6
+
+2015-01-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: configure: set seccomp as enabled by default
+
+2015-01-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: radius: handle Framed-IPv6-Prefix as routes to
+	add
+
+2014-12-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/common.h, src/config.c, src/ocserv-args.def: 
+	Allow prefixes in specifying the IPv4 network
+
+2014-12-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: Disable route and DNS assignment in IPv6 for
+	non-openconnect clients That is because anyconnect clients can handle the assignment of an
+	IPv6 address, but cannot handle routes or DNS in IPv6.  So we
+	disable IPv6 after an IP is assigned.
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/Dockerfile-fedora-unix: dockerfile: added
+	missing haproxy
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def,
+	src/sup-config/file.c, src/vpn.h: simplify the input of IPv6
+	networks The prefix is specified as part of the network.
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/README.radius, src/auth/radius.c, src/auth/radius.h,
+	src/ocserv-args.def, src/sup-config/radius.c: radius: added support
+	for Framed-IPv6-Prefix
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: print IPv6 netmask only when in non-full mode Also use the network address if available to print netmask.
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/config.c: bail out if use-seccomp is set to true but there is
+	no seccomp capability
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/full-test: tests: enabled nuttcp when running in Fedora
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am, tests/docker-common.sh,
+	tests/docker-ocserv/Dockerfile-debian-tcp,
+	tests/docker-ocserv/Dockerfile-debian-unix,
+	tests/docker-ocserv/Dockerfile-fedora-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-unix,
+	tests/docker-ocserv/Dockerfile-tcp,
+	tests/docker-ocserv/Dockerfile-unix,
+	tests/docker-ocserv/Makefile.am, tests/full-test, tests/unix-test: 
+	full-test, unix-test: modified to operate in Fedora as well That also enables a check for ping in the IPv6 address.
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* README: Added protobuf-c dependency
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/ocserv-unix.conf,
+	tests/docker-ocserv/ocserv.conf, tests/unix-test: tests: separated
+	the address ranges on full and unix tests and added IPv6 addresses
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: send the Netmask when an IPv6 Address is
+	assigned
+
+2014-12-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ip-lease.c: IPv6 fixes in ip-lease Issue discovered and fixed by sskaje.
+
+2014-12-28  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: use libsystemd instead of systemd-daemon
+
+2014-12-28  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: enable IPv6 in Anyconnect clients, and send the
+	prefix
+
+2014-12-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2014-12-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2014-12-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/pam.c: Do print error when pam_authenticate or
+	pam_acct_mgmt fail
+
+2014-12-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/README.radius: doc update
+
+2014-12-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-auth.c: override the default ipv6_prefix only if
+	ipv6_prefix is set
+
+2014-12-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: the default strings will
+	enforce PFS
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: radius: optimize "parse" of route
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/README.radius, src/auth/radius.c, src/auth/radius.h,
+	src/sup-config/radius.c: radius: use Framed-Route and
+	Framed-IPv6-Route That is read and if format is the expected, they are forwarded to
+	client.
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/pam.c, src/auth/plain.c, src/auth/radius.c: more
+	strlcpy() related changes
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ipc.proto, src/main-misc.c, src/sec-mod-auth.c: ensure that
+	stats are only updated if they increase That is, transferred bytes will not decrease in an update due to
+	miscommunication between main and workers.
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac, src/common.c, src/common.h, src/config.c,
+	src/main-auth.c, src/main-ctl-unix.c, src/main-misc.c,
+	src/main-user.c, src/main.c, src/sec-mod-auth.c, src/sec-mod-ban.c,
+	src/sec-mod-db.c, src/sec-mod.c, src/tlslib.c, src/tun.c,
+	src/worker-auth.c: use strlcpy() instead of snprintf() where it make
+	sense That should reduce wasted cycles.
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/pam.c, src/auth/radius.c, src/auth/radius.h,
+	src/ipc.proto, src/main-misc.c, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/sec-mod.h, src/worker-vpn.c, src/worker.h: 
+	radius: increase the info sent during accounting requests Based on suggestions by Niels Peen. That adds: Calling-Station-Id in
+	auth message, and Service-Type, Framed-Protocol, Framed-IP-Address,
+	Acct-Authentic, NAS-Port-Type, Acct-Session-Time in acct messages.
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config: removed unused option
+
+2014-12-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: removed redundant checks
+
+2014-12-13  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: check for a suitable freeradius-client
+
+2014-12-13  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c, src/auth/radius.h: simplify radius usage
+
+2014-12-13  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* README, doc/README.radius: updated radius documentation
+
+2014-12-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* README, doc/Makefile.am, doc/README.radius: Added README.radius
+
+2014-12-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: first set amod and then use it That fixes a crash with PAM module on startup.  Reported by Ismail
+	Donmez.
+
+2014-12-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-sup-config.c: do not utilize radius symbols if radius
+	is disabled Reported by Ismail Donmez
+
+2014-12-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: bumped version
+
 2014-12-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
-	* tests/unix-test: test-unix: correct copy of file
+	* NEWS: doc update
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* : commit 3307793e3474678516c85279521bc74f5095171e Author: Nikos
+	Mavrogiannopoulos <nmav@gnutls.org> Date:   Wed Dec 10 19:55:12 2014
+	+0100
 
 2014-12-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* NEWS, configure.ac: bumped version
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/sec-mod-auth.c, src/sec-mod.c, src/sec-mod.h: 
+	undid ed5b177691d52c1c5417ef802854e26c9dd5d4f4 It is not currently possible to reload only a part of the
+	configuration. If the back-end module changes, the server will bail
+	out instead.
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: sec-mod: always reply on open-session cmd
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: avoid crash when no auth module is in use
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c, src/sec-mod.c, src/sec-mod.h: sec-mod:
+	preparations for thread safety
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c, src/sec-mod.c: sec-mod: separated request
+	serving from main loop
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* README, doc/sample.config, src/ocserv-args.def: updated
+	documentation on radius
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* TODO: updated todo list
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/auth/pam.c, src/auth/radius.c,
+	src/auth/radius.h, src/common.c, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/sec-mod.c, src/sec-mod.h: Added support for
+	radius interim updates
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/ipc.proto, src/ocserv-args.def, src/sec-mod.c,
+	src/sec-mod.h, src/vpn.h, src/worker-auth.c, src/worker-vpn.c,
+	src/worker.h: added option to send statistics periodically to
+	sec-mod
+
+2014-12-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: authentication information is only read on load
+
+2014-12-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/Makefile.am, src/auth/radius.c,
+	src/auth/radius.h, src/config.c, src/ocserv-args.def,
+	src/sec-mod-sup-config.c, src/sec-mod-sup-config.h,
+	src/sup-config/radius.c, src/sup-config/radius.h, src/vpn.h: Added
+	support for reading user configuration from radius.
+
+2014-12-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, doc/sample.config, src/Makefile.am,
+	src/auth/common.c, src/auth/common.h, src/auth/plain.c,
+	src/auth/radius.c, src/auth/radius.h, src/config.c, src/main.h,
+	src/ocserv-args.def, src/sec-mod-auth.c, src/sec-mod-auth.h,
+	src/sec-mod.c, src/sec-mod.h, src/vpn.h: Added support for radius
+	authentication
+
+2014-12-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/common.h, src/config.c, src/ip-lease.c,
+	src/ipc.proto, src/main-auth.c, src/main-misc.c,
+	src/main-sup-config.c, src/main-sup-config.h, src/main.c,
+	src/main.h, src/ocserv-args.def, src/sec-mod-auth.c,
+	src/sec-mod-sup-config.c, src/sec-mod-sup-config.h, src/sec-mod.c,
+	src/sec-mod.h, src/sup-config/file.c, src/sup-config/file.h,
+	src/vpn.h: Supplementary configuration is now read by the security
+	module.  That allows sec-mod to handle both authentication and accounting.
+	That deprecates the session-control configuration option.
+
+2014-12-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.h, src/config.c, src/ip-lease.c, src/main-auth.c,
+	src/sup-config/file.c, src/vpn.h, src/worker-auth.c,
+	src/worker-misc.c: deprecated ipv6_netmask
 
 2014-12-02  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 

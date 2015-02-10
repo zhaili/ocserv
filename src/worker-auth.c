@@ -490,14 +490,11 @@ static int recv_cookie_auth_reply(worker_st * ws)
 				goto cleanup;
 			}
 
-			snprintf(ws->vinfo.name, sizeof(ws->vinfo.name), "%s",
-				 msg->vname);
-			snprintf(ws->username, sizeof(ws->username), "%s",
-				 msg->user_name);
+			strlcpy(ws->vinfo.name, msg->vname, sizeof(ws->vinfo.name));
+			strlcpy(ws->username, msg->user_name, sizeof(ws->username));
 
 			if (msg->group_name != NULL) {
-				snprintf(ws->groupname, sizeof(ws->groupname), "%s",
-					 msg->group_name);
+				strlcpy(ws->groupname, msg->group_name, sizeof(ws->groupname));
 			} else {
 				ws->groupname[0] = 0;
 			}
@@ -548,12 +545,6 @@ static int recv_cookie_auth_reply(worker_st * ws)
 				    talloc_strdup(ws, msg->ipv4_netmask);
 			}
 
-			if (msg->ipv6_netmask != NULL) {
-				talloc_free(ws->config->network.ipv6_netmask);
-				ws->config->network.ipv6_netmask =
-				    talloc_strdup(ws, msg->ipv6_netmask);
-			}
-
 			if (msg->ipv4_network != NULL) {
 				talloc_free(ws->config->network.ipv4_network);
 				ws->config->network.ipv4_network =
@@ -566,7 +557,9 @@ static int recv_cookie_auth_reply(worker_st * ws)
 				    talloc_strdup(ws, msg->ipv6_network);
 			}
 
-			ws->config->network.ipv6_prefix = msg->ipv6_prefix;
+			if (msg->has_ipv6_prefix) {
+				ws->config->network.ipv6_prefix = msg->ipv6_prefix;
+			}
 
 			if (msg->has_rx_per_sec)
 				ws->config->rx_per_sec = msg->rx_per_sec;
@@ -647,7 +640,7 @@ static int recv_cookie_auth_reply(worker_st * ws)
 }
 
 /* returns the fd */
-static int connect_to_secmod(worker_st * ws)
+int connect_to_secmod(worker_st * ws)
 {
 	int sd, ret, e;
 
@@ -671,16 +664,6 @@ static int connect_to_secmod(worker_st * ws)
 		return -1;
 	}
 	return sd;
-}
-
-static
-int send_msg_to_secmod(worker_st * ws, int sd, uint8_t cmd,
-		       const void *msg, pack_size_func get_size, pack_func pack)
-{
-	oclog(ws, LOG_DEBUG, "sending message '%s' to secmod",
-	      cmd_request_to_str(cmd));
-
-	return send_msg(ws, sd, cmd, msg, get_size, pack);
 }
 
 static int recv_auth_reply(worker_st * ws, int sd, char *txt,
@@ -707,7 +690,7 @@ static int recv_auth_reply(worker_st * ws, int sd, char *txt,
 			return ERR_AUTH_FAIL;
 		}
 
-		snprintf(txt, max_txt_size, "%s", msg->msg);
+		strlcpy(txt, msg->msg, max_txt_size);
 		if (msg->has_sid && msg->sid.len == sizeof(ws->sid)) {
 			/* update our sid */
 			memcpy(ws->sid, msg->sid.data, sizeof(ws->sid));
@@ -722,8 +705,7 @@ static int recv_auth_reply(worker_st * ws, int sd, char *txt,
 			goto cleanup;
 		}
 
-		snprintf(ws->username, sizeof(ws->username), "%s",
-			 msg->user_name);
+		strlcpy(ws->username, msg->user_name, sizeof(ws->username));
 
 		if (msg->has_sid && msg->sid.len == sizeof(ws->sid)) {
 			/* update our sid */
@@ -1103,8 +1085,7 @@ int post_auth_handler(worker_st * ws, unsigned http_ver)
 				   strcmp(groupname, ws->config->default_select_group) == 0) {
 				def_group = 1;
 			} else {
-				snprintf(ws->groupname, sizeof(ws->groupname), "%s",
-				 	groupname);
+				strlcpy(ws->groupname, groupname, sizeof(ws->groupname));
 				ireq.group_name = ws->groupname;
 			}
 		}
@@ -1121,8 +1102,7 @@ int post_auth_handler(worker_st * ws, unsigned http_ver)
 				goto ask_auth;
 			}
 
-			snprintf(ws->username, sizeof(ws->username), "%s",
-				 username);
+			strlcpy(ws->username, username, sizeof(ws->username));
 			talloc_free(username);
 			ireq.user_name = ws->username;
 		}

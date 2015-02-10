@@ -132,6 +132,9 @@ typedef struct proc_st {
 	char user_agent[MAX_AGENT_NAME];
 	char tls_ciphersuite[MAX_CIPHERSUITE_NAME];
 	char dtls_ciphersuite[MAX_CIPHERSUITE_NAME];
+	char cstp_compr[8];
+	char dtls_compr[8];
+	unsigned mtu;
 
 	/* pointer to the cookie used by this session */
 	struct cookie_entry_st *cookie_ptr;
@@ -213,7 +216,6 @@ typedef struct main_server_st {
 	time_t start_time;
 
 	void * auth_extra;
-	struct config_mod_st *config_module;
 
 #ifdef HAVE_DBUS
 	void * ctl_ctx;
@@ -304,5 +306,7 @@ int send_socket_msg_to_worker(main_server_st* s, struct proc_st* proc, uint8_t c
 
 void request_reload(int signo);
 void request_stop(int signo);
+
+const struct auth_mod_st *get_auth_mod(void);
 
 #endif

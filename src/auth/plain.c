@@ -29,14 +29,11 @@
 #include <vpn.h>
 #include <c-ctype.h>
 #include "plain.h"
+#include "auth/common.h"
 #include <ccan/htable/htable.h>
 #include <ccan/hash/hash.h>
 
 #define MAX_CPASS_SIZE 128
-#define MAX_TRIES 3
-
-const char* pass_msg_first = "Please enter your password.";
-const char* pass_msg_failed = "Login failed.\nPlease enter your password.";
 
 struct plain_ctx_st {
 	char username[MAX_USERNAME_SIZE];
@@ -148,8 +145,7 @@ static int read_auth_pass(struct plain_ctx_st *pctx)
 
 				p = strtok_r(NULL, ":", &sp);
 				if (p != NULL) {
-					snprintf(pctx->cpass,
-						 sizeof(pctx->cpass), "%s", p);
+					strlcpy(pctx->cpass, p, sizeof(pctx->cpass));
 					ret = 0;
 					goto exit;
 				}
@@ -175,7 +171,7 @@ static int plain_auth_init(void **ctx, void *pool, const char *username, const c
 	if (pctx == NULL)
 		return ERR_AUTH_FAIL;
 
-	snprintf(pctx->username, sizeof(pctx->username), "%s", username);
+	strlcpy(pctx->username, username, sizeof(pctx->username));
 	pctx->passwd = additional;
 	pctx->pass_msg = pass_msg_first;
 
@@ -200,7 +196,7 @@ static int plain_auth_group(void *ctx, const char *suggested, char *groupname, i
 	if (suggested != NULL) {
 		for (i=0;i<pctx->groupnames_size;i++) {
 			if (strcmp(suggested, pctx->groupnames[i]) == 0) {
-				snprintf(groupname, groupname_size, "%s", pctx->groupnames[i]);
+				strlcpy(groupname, pctx->groupnames[i], groupname_size);
 				found = 1;
 				break;
 			}
@@ -215,7 +211,7 @@ static int plain_auth_group(void *ctx, const char *suggested, char *groupname, i
 	}
 
 	if (pctx->groupnames_size > 0 && groupname[0] == 0) {
-		snprintf(groupname, groupname_size, "%s", pctx->groupnames[0]);
+		strlcpy(groupname, pctx->groupnames[0], groupname_size);
 	}
 	return 0;
 }
@@ -252,7 +248,7 @@ static int plain_auth_msg(void *ctx, char *msg, size_t msg_size)
 {
 	struct plain_ctx_st *pctx = ctx;
 
-	snprintf(msg, msg_size, "%s", pctx->pass_msg);
+	strlcpy(msg, pctx->pass_msg, msg_size);
 	return 0;
 }
 

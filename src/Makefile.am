@@ -3,13 +3,13 @@ SUBDIRS =
 AM_CPPFLAGS = -I$(srcdir)/../gl/ -I$(builddir)/../gl/ \
 	-I$(srcdir)/ -I$(builddir)/../ $(LIBOPTS_CFLAGS) \
 	$(LIBGNUTLS_CFLAGS) \
-	$(LIBPROTOBUF_C_CFLAGS) \
+	$(LIBPROTOBUF_C_CFLAGS) $(LIBLZ4_CFLAGS) \
 	$(LIBNL3_CFLAGS) $(LIBREADLINE_CFLAGS) \
 	$(LIBTALLOC_CFLAGS) $(LIBDBUS_CFLAGS)
 
 BUILT_SOURCES = ocpasswd-args.c ocpasswd-args.h \
 	ocserv-args.c ocserv-args.h ipc.pb-c.c ipc.pb-c.h \
-	ctl.pb-c.c ctl.pb-c.h
+	ctl.pb-c.c ctl.pb-c.h http-heads.h
 
 #AM_CPPFLAGS += -DDEBUG_LEAKS
 
@@ -29,7 +29,7 @@ endif
 
 EXTRA_DIST = ccan/licenses/BSD-MIT version.inc.in \
 	ccan/licenses/CC0 ccan/licenses/LGPL-2.1 version.inc \
-	occtl-args.def ipc.proto ctl.proto
+	occtl-args.def ipc.proto ctl.proto http-heads.gperf
 
 bin_PROGRAMS = ocpasswd occtl
 
@@ -62,21 +62,23 @@ endif
 COMMON_SOURCES=common.c common.h system.c system.h setproctitle.c setproctitle.h
 
 # Authentication module sources
-AUTH_SOURCES=auth/pam.c auth/pam.h auth/plain.c auth/plain.h
+AUTH_SOURCES=auth/pam.c auth/pam.h auth/plain.c auth/plain.h auth/radius.c auth/radius.h \
+	auth/common.c auth/common.h
 
 ocserv_SOURCES = main.c main-auth.c worker-vpn.c worker-auth.c tlslib.c \
 	cookies.c main-misc.c ip-lease.c ip-lease.h \
 	vpn.h cookies.h tlslib.h log.c tun.c tun.h \
 	config.c worker-resume.c worker.h main-resume.c main.h \
-	worker-extras.c html.c html.h \
+	worker-extras.c html.c html.h worker-http.c \
 	main-user.c worker-misc.c route-add.c route-add.h worker-privs.c \
 	sec-mod.c sec-mod-db.c sec-mod-auth.c sec-mod-auth.h sec-mod.h sec-mod-ban.c \
 	script-list.h $(COMMON_SOURCES) $(AUTH_SOURCES) \
 	icmp-ping.c icmp-ping.h \
-	main-sup-config.c main-sup-config.h \
+	sec-mod-sup-config.c sec-mod-sup-config.h \
 	sup-config/file.c sup-config/file.h \
+	sup-config/radius.c sup-config/radius.h \
 	worker-bandwidth.c worker-bandwidth.h ctl.h main-ctl.h \
-	vasprintf.c vasprintf.h \
+	vasprintf.c vasprintf.h lzs.c lzs.h \
 	proc-search.c proc-search.h \
 	str.c str.h gettime.h $(CCAN_SOURCES) $(HTTP_PARSER_SOURCES) \
 	$(PROTOBUF_SOURCES)
@@ -87,7 +89,8 @@ ocserv_SOURCES += ipc.pb-c.h ipc.pb-c.c ctl.pb-c.c ctl.pb-c.h
 ocserv_LDADD = ../gl/libgnu.a $(NEEDED_LIBOPTS) libcmd-ocserv.a
 ocserv_LDADD += $(LIBGNUTLS_LIBS) $(PAM_LIBS) $(LIBUTIL) \
 	$(LIBSECCOMP) $(LIBWRAP) $(LIBCRYPT) $(NEEDED_HTTP_PARSER_LIBS) \
-	$(LIBPROTOBUF_C_LIBS) $(LIBSYSTEMD_DAEMON) $(LIBTALLOC_LIBS)
+	$(LIBPROTOBUF_C_LIBS) $(LIBSYSTEMD_DAEMON) $(LIBTALLOC_LIBS) \
+	$(FREERADIUS_CLIENT_LIBS) $(LIBLZ4_LIBS)
 
 
 if PCL
@@ -135,3 +138,6 @@ ctl.pb-c.c: ctl.proto
 	protoc-c --c_out=. --proto_path=$(srcdir) $<
 
 ctl.pb-c.h: ctl.pb-c.c
+
+http-heads.h: $(srcdir)/http-heads.gperf
+	-gperf --global-table -t $^ > $@-tmp && mv $@-tmp $@

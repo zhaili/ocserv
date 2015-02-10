@@ -504,7 +504,8 @@ int handle_list_users_cmd(struct unix_ctx *ctx, const char *arg)
 
 		dtls_ciphersuite = rep->user[i]->dtls_ciphersuite;
 		if (dtls_ciphersuite != NULL && dtls_ciphersuite[0] != 0) {
-			if (strncmp(dtls_ciphersuite, "(DTLS1.2)-(RSA)-", 16) == 0)
+			if (strlen(dtls_ciphersuite) > 16 && strncmp(dtls_ciphersuite, "(DTLS", 5) == 0 &&
+			    strncmp(&dtls_ciphersuite[8], ")-(RSA)-", 8) == 0)
 				dtls_ciphersuite += 16;
 			fprintf(out, " %14s %9s\n", dtls_ciphersuite, rep->user[i]->status);
 		} else {
@@ -598,10 +599,13 @@ int common_info_cmd(UserListRep * args)
 		}
 		fprintf(out, "\tDevice: %s  ", args->user[i]->tun);
 
-		if (args->user[i]->user_agent != NULL && args->user[i]->user_agent[0] != 0)
-			fprintf(out, "User-Agent: %s\n", args->user[i]->user_agent);
+		if (args->user[i]->has_mtu != 0)
+			fprintf(out, "MTU: %d\n", args->user[i]->mtu);
 		else
 			fprintf(out, "\n");
+
+		if (args->user[i]->user_agent != NULL && args->user[i]->user_agent[0] != 0)
+			fprintf(out, "\tUser-Agent: %s\n", args->user[i]->user_agent);
 
 		if (args->user[i]->rx_per_sec > 0 || args->user[i]->tx_per_sec > 0) {
 			/* print limits */
@@ -634,6 +638,11 @@ int common_info_cmd(UserListRep * args)
 		fprintf(out, "\tTLS ciphersuite: %s\n", args->user[i]->tls_ciphersuite);
 		if (args->user[i]->dtls_ciphersuite != NULL && args->user[i]->dtls_ciphersuite[0] != 0)
 			fprintf(out, "\tDTLS cipher: %s\n", args->user[i]->dtls_ciphersuite);
+
+		if (args->user[i]->cstp_compr && args->user[i]->cstp_compr[0] != 0)
+			fprintf(out, "\tCSTP compression: %s\n", args->user[i]->cstp_compr);
+		if (args->user[i]->dtls_compr != NULL && args->user[i]->dtls_compr[0] != 0)
+			fprintf(out, "\tDTLS compression: %s\n", args->user[i]->dtls_compr);
 
 		/* user network info */
 		fputs("\n", out);

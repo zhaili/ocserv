@@ -25,6 +25,7 @@
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+
 #include <unistd.h>
 #include <net/if.h>
 #include <vpn.h>
@@ -45,17 +46,6 @@ typedef enum {
 	UP_ACTIVE
 } udp_port_state_t;
 
-#define STR_HDR_COOKIE "Cookie"
-#define STR_HDR_USER_AGENT "User-Agent"
-#define STR_HDR_CONNECTION "Connection"
-#define STR_HDR_MS "X-DTLS-Master-Secret"
-#define STR_HDR_CS "X-DTLS-CipherSuite"
-#define STR_HDR_CMTU "X-CSTP-Base-MTU"
-#define STR_HDR_ATYPE "X-CSTP-Address-Type"
-#define STR_HDR_HOST "X-CSTP-Hostname"
-#define STR_HDR_FULL_IPV6 "X-CSTP-Full-IPv6-Capability"
-#define STR_HDR_DEVICE_TYPE "X-AnyConnect-Identifier-DeviceType"
-
 enum {
 	HEADER_COOKIE = 1,
 	HEADER_MASTER_SECRET,
@@ -67,6 +57,8 @@ enum {
 	HEADER_CONNECTION,
 	HEADER_FULL_IPV6,
 	HEADER_USER_AGENT,
+	HEADER_CSTP_ENCODING,
+	HEADER_DTLS_ENCODING
 };
 
 enum {
@@ -88,6 +80,17 @@ enum {
 	AGENT_OPENCONNECT_V3,
 	AGENT_OPENCONNECT
 };
+
+typedef int (*decompress_fn)(void* dst, int maxDstSize, const void* src, int src_size);
+typedef int (*compress_fn)(void* dst, int dst_size, const void* src, int src_size);
+
+typedef struct compression_method_st {
+	comp_type_t id;
+	const char *name;
+	decompress_fn decompress;
+	compress_fn compress;
+	unsigned server_prio; /* the highest the more we want to negotiate that */
+} compression_method_st;
 
 typedef struct dtls_ciphersuite_st {
 	const char* oc_name;
@@ -129,10 +132,19 @@ struct http_req_st {
 	unsigned no_ipv6;
 };
 
+typedef struct dtls_transport_ptr {
+	int fd;
+	UdpFdMsg *msg; /* holds the data of the first client hello */
+	int consumed;
+} dtls_transport_ptr;
+
 typedef struct worker_st {
 	struct tls_st *creds;
 	gnutls_session_t session;
 	gnutls_session_t dtls_session;
+
+	const compression_method_st *dtls_selected_comp;
+	const compression_method_st *cstp_selected_comp;
 
 	struct http_req_st req;
 
@@ -154,7 +166,9 @@ typedef struct worker_st {
 	struct sockaddr_storage remote_addr;	/* peer's address */
 	socklen_t remote_addr_len;
 	int proto; /* AF_INET or AF_INET6 */
-	
+
+	time_t session_start_time;
+
 	/* for dead peer detection */
 	time_t last_msg_udp;
 	time_t last_msg_tcp;
@@ -164,13 +178,16 @@ typedef struct worker_st {
 	time_t last_periodic_check;
 
 	/* set after authentication */
-	int udp_fd;
+	dtls_transport_ptr dtls_tptr;
 	udp_port_state_t udp_state;
 	time_t udp_recv_time; /* time last udp packet was received */
 
 	/* protection from multiple rehandshakes */
 	time_t last_tls_rehandshake;
 	time_t last_dtls_rehandshake;
+
+	/* the time the last stats message was sent */
+	time_t last_stats_msg;
 
 	/* for mtu trials */
 	unsigned last_good_mtu;
@@ -193,6 +210,8 @@ typedef struct worker_st {
 
 	/* Buffer used by worker */
 	uint8_t buffer[16*1024];
+	/* Buffer used for decompression */
+	uint8_t decomp[16*1024];
 	unsigned buffer_size;
 
 	/* the following are set only if authentication is complete */
@@ -265,6 +284,20 @@ void __attribute__ ((format(printf, 3, 4)))
 void  oclog_hex(const worker_st* ws, int priority,
 		const char *prefix, uint8_t* bin, unsigned bin_size, unsigned b64);
 
+typedef int (*url_handler_fn) (worker_st *, unsigned http_ver);
+int http_url_cb(http_parser * parser, const char *at, size_t length);
+int http_header_value_cb(http_parser * parser, const char *at, size_t length);
+int http_header_field_cb(http_parser * parser, const char *at, size_t length);
+int http_header_complete_cb(http_parser * parser);
+int http_message_complete_cb(http_parser * parser);
+int http_body_cb(http_parser * parser, const char *at, size_t length);
+void http_req_deinit(worker_st * ws);
+void http_req_reset(worker_st * ws);
+void http_req_init(worker_st * ws);
+
+url_handler_fn http_get_url_handler(const char *url);
+url_handler_fn http_post_url_handler(const char *url);
+
 int complete_vpn_info(worker_st * ws,
                     struct vpn_st* vinfo);
 unsigned check_if_default_route(char **routes, unsigned routes_size);
@@ -273,6 +306,17 @@ int send_tun_mtu(worker_st *ws, unsigned int mtu);
 int handle_worker_commands(struct worker_st *ws);
 int disable_system_calls(struct worker_st *ws);
 void ocsigaltstack(struct worker_st *ws);
+
+int connect_to_secmod(worker_st * ws);
+inline static
+int send_msg_to_secmod(worker_st * ws, int sd, uint8_t cmd,
+		       const void *msg, pack_size_func get_size, pack_func pack)
+{
+	oclog(ws, LOG_DEBUG, "sending message '%s' to secmod",
+	      cmd_request_to_str(cmd));
+
+	return send_msg(ws, sd, cmd, msg, get_size, pack);
+}
 
 inline static
 int send_msg_to_main(worker_st *ws, uint8_t cmd, 

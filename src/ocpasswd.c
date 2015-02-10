@@ -69,7 +69,11 @@ crypt_int(const char *fpasswd, const char *username, const char *groupname,
 		exit(1);
 	}
 
+#ifdef TRY_SHA2_CRYPT
 	strcpy(salt, "$5$");
+#else
+	strcpy(salt, "$1$");
+#endif
 	p = salt + 3;
 
 	for (i = 0; i < sizeof(_salt); i++) {
@@ -83,7 +87,7 @@ crypt_int(const char *fpasswd, const char *username, const char *groupname,
 
 	cr_passwd = crypt(passwd, salt);
 	if (cr_passwd == NULL) { /* try MD5 */
-		salt[1] = 1;
+		salt[1] = '1';
 		cr_passwd = crypt(passwd, salt);
 	}
 	if (cr_passwd == NULL) {

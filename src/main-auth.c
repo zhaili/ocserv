@@ -36,7 +36,6 @@
 #include <script-list.h>
 #include <ip-lease.h>
 #include <proc-search.h>
-#include <main-sup-config.h>
 #include "str.h"
 
 #include <vpn.h>
@@ -85,7 +84,6 @@ int send_cookie_auth_reply(main_server_st* s, struct proc_st* proc,
 		}
 
 		msg.ipv4_netmask = proc->config.ipv4_netmask;
-		msg.ipv6_netmask = proc->config.ipv6_netmask;
 
 		msg.ipv4_network = proc->config.ipv4_network;
 		msg.ipv6_network = proc->config.ipv6_network;
@@ -185,7 +183,7 @@ struct cookie_entry_st *old;
 
 	if (cmsg->username == NULL)
 		return -1;
-	snprintf(proc->username, sizeof(proc->username), "%s", cmsg->username);
+	strlcpy(proc->username, cmsg->username, sizeof(proc->username));
 
 	if (cmsg->sid.len != sizeof(proc->sid))
 		return -1;
@@ -203,24 +201,23 @@ struct cookie_entry_st *old;
 	/* override the group name in order to load the correct configuration in
 	 * case his group is specified in the certificate */
 	if (cmsg->groupname)
-		snprintf(proc->groupname, sizeof(proc->groupname), "%s", cmsg->groupname);
+		strlcpy(proc->groupname, cmsg->groupname, sizeof(proc->groupname));
 
 	/* cookie is good so far, now read config (in order to know
 	 * whether roaming is allowed or not */
 	memset(&proc->config, 0, sizeof(proc->config));
 	apply_default_sup_config(s->config, proc);
 
-	if (s->config_module) {
-		ret = s->config_module->get_sup_config(s->config, proc);
-		if (ret < 0) {
-			mslog(s, proc, LOG_ERR,
-			      "error reading additional configuration");
-			return ERR_READ_CONFIG;
-		}
+	/* loads sup config */
+	ret = session_open(s, proc);
+	if (ret < 0) {
+		mslog(s, proc, LOG_INFO, "could not open session");
+		return -1;
+	}
 
-	        if (proc->config.cgroup != NULL) {
-	        	put_into_cgroup(s, proc->config.cgroup, proc->pid);
-		}
+	/* Put into right cgroup */
+        if (proc->config.cgroup != NULL) {
+        	put_into_cgroup(s, proc->config.cgroup, proc->pid);
 	}
 
 	/* check whether the cookie IP matches */
@@ -244,8 +241,8 @@ struct cookie_entry_st *old;
 	if ((old=find_cookie_entry(&s->cookies, req->cookie.data, req->cookie.len)) != NULL) {
 		mslog(s, proc, LOG_DEBUG, "reusing cookie for '%s' (%u)", proc->username, (unsigned)proc->pid);
 		if (old->proc != NULL) {
-			mslog(s, old->proc, LOG_DEBUG, "disconnecting '%s' (%u) due to new cookie connection",
-				old->proc->username, (unsigned)old->proc->pid);
+			mslog(s, old->proc, LOG_DEBUG, "disconnecting (%u) due to new cookie connection",
+				(unsigned)old->proc->pid);
 
 			/* steal its leases */
 			steal_ip_leases(old->proc, proc);
@@ -266,7 +263,7 @@ struct cookie_entry_st *old;
 			return -1;
 		}
 
-		mslog(s, proc, LOG_DEBUG, "new cookie for '%s' (%u)", proc->username, (unsigned)proc->pid);
+		mslog(s, proc, LOG_DEBUG, "new cookie for (%u)", (unsigned)proc->pid);
 
 		proc->cookie_ptr = new_cookie_entry(&s->cookies, proc, req->cookie.data, req->cookie.len);
 		if (proc->cookie_ptr == NULL)
@@ -280,15 +277,9 @@ struct cookie_entry_st *old;
 	}
 
 	if (cmsg->hostname)
-		snprintf(proc->hostname, sizeof(proc->hostname), "%s", cmsg->hostname);
+		strlcpy(proc->hostname, cmsg->hostname, sizeof(proc->hostname));
 
 	memcpy(proc->ipv4_seed, &cmsg->ipv4_seed, sizeof(proc->ipv4_seed));
-
-	ret = session_open(s, proc);
-	if (ret < 0) {
-		mslog(s, proc, LOG_INFO, "could not open session");
-		return -1;
-	}
 
 	/* add the links to proc hash */
 	proc_table_add(s, proc);

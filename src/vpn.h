@@ -50,6 +50,15 @@ typedef enum {
 	SOCK_TYPE_UNIX
 } sock_type_t;
 
+typedef enum {
+	OC_COMP_NULL = 0,
+	OC_COMP_LZ4,
+	OC_COMP_LZS,
+} comp_type_t;
+
+#define MIN_NO_COMPRESS_LIMIT 64
+#define DEFAULT_NO_COMPRESS_LIMIT 256
+
 #define DEBUG_BASIC 1
 #define DEBUG_HTTP  2
 #define DEBUG_TRANSFERRED 5
@@ -76,6 +85,7 @@ extern int syslog_open;
 #define AUTH_TYPE_PLAIN (1<<2 | AUTH_TYPE_USERNAME_PASS)
 #define AUTH_TYPE_CERTIFICATE (1<<3)
 #define AUTH_TYPE_CERTIFICATE_OPT (1<<4|AUTH_TYPE_CERTIFICATE)
+#define AUTH_TYPE_RADIUS (1<<5 | AUTH_TYPE_USERNAME_PASS)
 
 #define ERR_SUCCESS 0
 #define ERR_BAD_COMMAND -2
@@ -122,6 +132,7 @@ typedef enum {
 	SM_CMD_AUTH_SESSION_OPEN,
 	SM_CMD_AUTH_SESSION_CLOSE,
 	SM_CMD_AUTH_SESSION_REPLY,
+	SM_CMD_CLI_STATS,
 } cmd_request_t;
 
 #define MAX_IP_STR 46
@@ -145,8 +156,10 @@ struct group_cfg_st {
 	char *ipv6_network;
 	unsigned ipv6_prefix;
 	char *ipv4_netmask;
-	char *ipv6_netmask;
-	
+
+	char *explicit_ipv4;
+	char *explicit_ipv6;
+
 	char *cgroup;
 
 	char *xml_config_file;
@@ -166,7 +179,6 @@ struct vpn_st {
 	char *ipv4_network;
 	char *ipv4;
 	char *ipv4_local; /* local IPv4 address */
-	char *ipv6_netmask;
 	char *ipv6_network;
 	unsigned ipv6_prefix;
 
@@ -190,6 +202,8 @@ struct cfg_st {
 	unsigned int udp_port;
 	unsigned int is_dyndns;
 	char* unix_conn_file;
+	unsigned int sup_config_type; /* one of SUP_CONFIG_ */
+	unsigned int stats_report_time;
 
 	char *pin_file;
 	char *srk_pin_file;
@@ -204,10 +218,11 @@ struct cfg_st {
 	char *cert_user_oid;	/* The OID that will be used to extract the username */
 	char *cert_group_oid;	/* The OID that will be used to extract the groupname */
 	unsigned int auth_types;	/* or'ed sequence of AUTH_TYPE */
-	unsigned session_control; /* whether to use the session control part of authentication (PAM) */
 	char *auth_additional;	/* the additional string specified in the auth methode */
 	gnutls_certificate_request_t cert_req;
 	char *priorities;
+	unsigned enable_compression;
+	unsigned no_compress_limit;	/* under this size (in bytes) of data there will be no compression */
 	char *chroot_dir;	/* where the xml files are served from */
 	char *banner;
 	char *ocsp_response; /* file with the OCSP response */
@@ -236,7 +251,7 @@ struct cfg_st {
 
 	time_t min_reauth_time;	/* after a failed auth, how soon one can reauthenticate -> in seconds */
 
-	unsigned seccomp; /* whether seccomp should be enabled or not */
+	unsigned isolate; /* whether seccomp should be enabled or not */
 
 	unsigned auth_timeout; /* timeout of HTTP auth */
 	unsigned idle_timeout; /* timeout when idle */
@@ -313,6 +328,7 @@ struct main_server_st;
 
 #include <tun.h>
 
+unsigned extract_prefix(char *network);
 char *human_addr2(const struct sockaddr *sa, socklen_t salen,
 		       void *buf, size_t buflen, unsigned full);
 
