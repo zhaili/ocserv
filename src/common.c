@@ -177,6 +177,14 @@ int val;
 	fcntl(fd, F_SETFL, val | O_NONBLOCK);
 }
 
+void set_block(int fd)
+{
+int val;
+
+	val = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, val & (~O_NONBLOCK));
+}
+
 ssize_t recv_timeout(int sockfd, void *buf, size_t len, unsigned sec)
 {
 int ret;
@@ -207,32 +215,6 @@ int ip_cmp(const struct sockaddr_storage *s1, const struct sockaddr_storage *s2,
 		return memcmp(SA_IN_P(s1), SA_IN_P(s2), sizeof(struct in_addr));
 	} else { /* inet6 */
 		return memcmp(SA_IN6_P(s1), SA_IN6_P(s2), sizeof(struct in6_addr));
-	}
-}
-
-/* returns an allocated string with the mask to apply for the prefix
- */
-char* ipv6_prefix_to_mask(void *pool, unsigned prefix)
-{
-	switch (prefix) {
-		case 16:
-			return talloc_strdup(pool, "ffff::");
-		case 32:
-			return talloc_strdup(pool, "ffff:ffff::");
-		case 48:
-			return talloc_strdup(pool, "ffff:ffff:ffff::");
-		case 64:
-			return talloc_strdup(pool, "ffff:ffff:ffff:ffff::");
-		case 80:
-			return talloc_strdup(pool, "ffff:ffff:ffff:ffff:ffff::");
-		case 96:
-			return talloc_strdup(pool, "ffff:ffff:ffff:ffff:ffff:ffff::");
-		case 112:
-			return talloc_strdup(pool, "ffff:ffff:ffff:ffff:ffff:ffff:ffff::");
-		case 128:
-			return talloc_strdup(pool, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-		default:
-			return NULL;
 	}
 }
 
@@ -505,7 +487,7 @@ struct msghdr mh = {
 				return -1;
 
 			a->sin_family = AF_INET;
-			memcpy(&a->sin_addr, &pi->ipi_addr, sizeof(struct in_addr));
+			memcpy(&a->sin_addr, &pi->s_addr, sizeof(struct in_addr));
 			a->sin_port = htons(def_port);
 			*our_addrlen = sizeof(struct sockaddr_in);
 			break;
@@ -527,6 +509,7 @@ struct msghdr mh = {
 		}
 #endif
 	}
+	*addrlen = mh.msg_namelen;
 
 	return ret;
 }

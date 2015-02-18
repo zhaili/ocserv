@@ -142,11 +142,46 @@ int get_ipv4_lease(main_server_st* s, struct proc_st* proc)
 	const char* c_network, *c_netmask;
 	char buf[64];
 
+	/* Our IP accounting */
+	if (proc->config.ipv4_network && proc->config.ipv4_netmask) {
+		c_network = proc->config.ipv4_network;
+		c_netmask = proc->config.ipv4_netmask;
+	} else {
+		c_network = s->config->network.ipv4;
+		c_netmask = s->config->network.ipv4_netmask;
+	}
+
+	if (c_network == NULL || c_netmask == NULL) {
+		mslog(s, NULL, LOG_DEBUG, "there is no IPv4 network assigned");
+		return 0;
+	}
+
+	ret =
+	    inet_pton(AF_INET, c_network, SA_IN_P(&network));
+	if (ret != 1) {
+		mslog(s, NULL, LOG_ERR, "error reading IP: %s", c_network);
+		return -1;
+	}
+
+	ret =
+	    inet_pton(AF_INET, c_netmask, SA_IN_P(&mask));
+	if (ret != 1) {
+		mslog(s, NULL, LOG_ERR, "error reading mask: %s", c_netmask);
+		return -1;
+	}
+
+	/* mask the network (just in case it is wrong) */
+	for (i=0;i<sizeof(struct in_addr);i++)
+		SA_IN_U8_P(&network)[i] &= (SA_IN_U8_P(&mask)[i]);
+       	((struct sockaddr_in*)&network)->sin_family = AF_INET;
+       	((struct sockaddr_in*)&network)->sin_port = 0;
+
 	if (proc->config.explicit_ipv4) {
 		/* if an explicit IP is given for that client, then
-		 * don't do any IP accounting */
+		 * do implicit IP accounting. Require the address
+		 * to be odd, so we use the next even address as PtP. */
 		ret =
-		    inet_pton(AF_INET, proc->config.explicit_ipv4, SA_IN_P(&network));
+		    inet_pton(AF_INET, proc->config.explicit_ipv4, SA_IN_P(&tmp));
 
 		if (ret != 1) {
 			mslog(s, NULL, LOG_ERR, "error reading explicit IP: %s", proc->config.explicit_ipv4);
@@ -157,130 +192,95 @@ int get_ipv4_lease(main_server_st* s, struct proc_st* proc)
 		if (proc->ipv4 == NULL)
 			return ERR_MEM;
 
-        	((struct sockaddr_in*)&network)->sin_family = AF_INET;
-        	((struct sockaddr_in*)&network)->sin_port = 0;
-		memcpy(&proc->ipv4->lip, &network, sizeof(struct sockaddr_in));
-       		proc->ipv4->lip_len = sizeof(struct sockaddr_in);
-	
-		memcpy(&proc->ipv4->rip, &network, sizeof(struct sockaddr_in));
+        	((struct sockaddr_in*)&tmp)->sin_family = AF_INET;
+        	((struct sockaddr_in*)&tmp)->sin_port = 0;
+		memcpy(&proc->ipv4->rip, &tmp, sizeof(struct sockaddr_in));
        		proc->ipv4->rip_len = sizeof(struct sockaddr_in);
-	
-       		return 0;
-	}
 
-	/* Our IP accounting */
-	if (proc->config.ipv4_network && proc->config.ipv4_netmask) {
-		c_network = proc->config.ipv4_network;
-		c_netmask = proc->config.ipv4_netmask;
-	} else {
-		c_network = s->config->network.ipv4;
-		c_netmask = s->config->network.ipv4_netmask;
-	}
-
-	if (c_network && c_netmask) {
-		ret =
-		    inet_pton(AF_INET, c_network, SA_IN_P(&network));
-
-		if (ret != 1) {
-			mslog(s, NULL, LOG_ERR, "error reading IP: %s", c_network);
-			return -1;
+		if (ip_lease_exists(s, &tmp, sizeof(struct sockaddr_in)) != 0) {
+			mslog(s, proc, LOG_DEBUG, "cannot assign explicit IP %s; it is in use.", 
+			      human_addr((void*)&tmp, sizeof(struct sockaddr_in), buf, sizeof(buf)));
+			ret = ERR_NO_IP;
+			goto fail;
 		}
 
-		ret =
-		    inet_pton(AF_INET, c_netmask, SA_IN_P(&mask));
-	
-		if (ret != 1) {
-			mslog(s, NULL, LOG_ERR, "error reading mask: %s", c_netmask);
-			return -1;
+		/* LIP = 1st network address */
+		memcpy(&proc->ipv4->lip, &network, sizeof(struct sockaddr_in));
+		proc->ipv4->lip_len = sizeof(struct sockaddr_in);
+
+		if (memcmp(SA_IN_U8_P(&proc->ipv4->lip), SA_IN_U8_P(&proc->ipv4->rip), sizeof(struct in_addr)) == 0) {
+			mslog(s, NULL, LOG_ERR, "cannot assign explicit IP: %s (net: %s)", proc->config.explicit_ipv4, c_network);
+			ret = ERR_NO_IP;
+			goto fail;
 		}
 
-		proc->ipv4 = talloc_zero(proc, struct ip_lease_st);
-		if (proc->ipv4 == NULL)
-			return ERR_MEM;
-		proc->ipv4->db = &s->ip_leases;
-
-		/* mask the network (just in case it is wrong) */
-		for (i=0;i<sizeof(struct in_addr);i++)
-			SA_IN_U8_P(&network)[i] &= (SA_IN_U8_P(&mask)[i]);
-        	((struct sockaddr_in*)&network)->sin_family = AF_INET;
-        	((struct sockaddr_in*)&network)->sin_port = 0;
-
-        	memcpy(&tmp, &network, sizeof(tmp));
-       		((struct sockaddr_in*)&tmp)->sin_family = AF_INET;
-       		((struct sockaddr_in*)&tmp)->sin_port = 0;
-
-		memset(&rnd, 0, sizeof(rnd));
-		((struct sockaddr_in*)&rnd)->sin_family = AF_INET;
-		((struct sockaddr_in*)&rnd)->sin_port = 0;
-
-		do {
-			if (max_loops == 0) {
-				mslog(s, proc, LOG_ERR, "could not figure out a valid IPv4 IP.");
-				ret = ERR_NO_IP;
-				goto fail;
-			}
-			if (max_loops == MAX_IP_TRIES) {
-				memcpy(SA_IN_U8_P(&rnd), proc->ipv4_seed, 4);
-			} else {
-				ip_from_seed(SA_IN_U8_P(&rnd), sizeof(struct in_addr),
-						SA_IN_U8_P(&rnd), sizeof(struct in_addr));
-			}
-			max_loops--;
-
-        		if (SA_IN_U8_P(&rnd)[3] == 255 || SA_IN_U8_P(&rnd)[3] == 254) /* avoid broadcast */
-	        		bignum_add(SA_IN_U8_P(&rnd), sizeof(struct in_addr), 1);
-
-			/* Mask the random number with the netmask */
-        		for (i=0;i<sizeof(struct in_addr);i++) {
-        			SA_IN_U8_P(&rnd)[i] &= ~(SA_IN_U8_P(&mask)[i]);
-			}
-
-			SA_IN_U8_P(&rnd)[sizeof(struct in_addr)-1] &= 0xFE;
-
-			/* Now add the IP to the masked random number */
-        		for (i=0;i<sizeof(struct in_addr);i++)
-        			SA_IN_U8_P(&rnd)[i] |= (SA_IN_U8_P(&network)[i]);
-
- 			/* check if it exists in the hash table */
-			if (ip_lease_exists(s, &rnd, sizeof(struct sockaddr_in)) != 0) {
-				mslog(s, proc, LOG_DEBUG, "cannot assign remote IP %s; it is in use.", 
-				      human_addr((void*)&rnd, sizeof(struct sockaddr_in), buf, sizeof(buf)));
-				continue;
-			}
-
-			memcpy(&proc->ipv4->lip, &rnd, sizeof(struct sockaddr_in));
-        		proc->ipv4->lip_len = sizeof(struct sockaddr_in);
-
-        		/* RIP = LIP + 1 */
-        		memcpy(&tmp, &proc->ipv4->lip, sizeof(struct sockaddr_in));
-        		bignum_add(SA_IN_U8_P(&tmp), sizeof(struct in_addr), 1);
-
- 			/* check if it exists in the hash table */
-			if (ip_lease_exists(s, &tmp, sizeof(struct sockaddr_in)) != 0) {
-				mslog(s, proc, LOG_DEBUG, "cannot assign remote IP %s; it is in use.", 
-				      human_addr((void*)&tmp, sizeof(struct sockaddr_in), buf, sizeof(buf)));
-				continue;
-			}
-
-        		memcpy(&proc->ipv4->rip, &tmp, sizeof(struct sockaddr_in));
-        		proc->ipv4->rip_len = sizeof(struct sockaddr_in);
-
-        		/* mask the last IP with the netmask */
-        		for (i=0;i<sizeof(struct in_addr);i++)
-        			SA_IN_U8_P(&tmp)[i] &= (SA_IN_U8_P(&mask)[i]);
-
-        		/* the result should match the network */
-        		if (memcmp(SA_IN_U8_P(&network), SA_IN_U8_P(&tmp), sizeof(struct in_addr)) != 0) {
-        			continue;
-        		}
-
-			mslog(s, proc, LOG_DEBUG, "selected IP: %s",
-			      human_addr((void*)&proc->ipv4->lip, proc->ipv4->lip_len, buf, sizeof(buf)));
-        		
-        		if (icmp_ping4(s, (void*)&proc->ipv4->lip, (void*)&proc->ipv4->rip) == 0)
-        			break;
-                } while(1);
+		return 0;
 	}
+
+	/* assign "random" IP */
+	proc->ipv4 = talloc_zero(proc, struct ip_lease_st);
+	if (proc->ipv4 == NULL)
+		return ERR_MEM;
+	proc->ipv4->db = &s->ip_leases;
+
+       	memcpy(&tmp, &network, sizeof(tmp));
+     	((struct sockaddr_in*)&tmp)->sin_family = AF_INET;
+	((struct sockaddr_in*)&tmp)->sin_port = 0;
+
+	memset(&rnd, 0, sizeof(rnd));
+	((struct sockaddr_in*)&rnd)->sin_family = AF_INET;
+	((struct sockaddr_in*)&rnd)->sin_port = 0;
+
+	do {
+		if (max_loops == 0) {
+			mslog(s, proc, LOG_ERR, "could not figure out a valid IPv4 IP.");
+			ret = ERR_NO_IP;
+			goto fail;
+		}
+		if (max_loops == MAX_IP_TRIES) {
+			memcpy(SA_IN_U8_P(&rnd), proc->ipv4_seed, 4);
+		} else {
+			ip_from_seed(SA_IN_U8_P(&rnd), sizeof(struct in_addr),
+					SA_IN_U8_P(&rnd), sizeof(struct in_addr));
+		}
+		max_loops--;
+
+        	if (SA_IN_U8_P(&rnd)[3] == 255 || SA_IN_U8_P(&rnd)[3] == 254) /* avoid broadcast */
+	       		bignum_add(SA_IN_U8_P(&rnd), sizeof(struct in_addr), 1);
+
+		/* Mask the random number with the netmask */
+        	for (i=0;i<sizeof(struct in_addr);i++) {
+        		SA_IN_U8_P(&rnd)[i] &= ~(SA_IN_U8_P(&mask)[i]);
+		}
+
+		/* Now add the IP to the masked random number */
+        	for (i=0;i<sizeof(struct in_addr);i++)
+        		SA_IN_U8_P(&rnd)[i] |= (SA_IN_U8_P(&network)[i]);
+
+		/* check if it exists in the hash table */
+		if (ip_lease_exists(s, &rnd, sizeof(struct sockaddr_in)) != 0) {
+			mslog(s, proc, LOG_DEBUG, "cannot assign remote IP %s; it is in use.", 
+			      human_addr((void*)&rnd, sizeof(struct sockaddr_in), buf, sizeof(buf)));
+			continue;
+		}
+
+		memcpy(&proc->ipv4->rip, &rnd, sizeof(struct sockaddr_in));
+       		proc->ipv4->rip_len = sizeof(struct sockaddr_in);
+
+       		/* LIP = 1st network address */
+		memcpy(&proc->ipv4->lip, &network, sizeof(struct sockaddr_in));
+		proc->ipv4->lip_len = sizeof(struct sockaddr_in);
+
+		if (memcmp(SA_IN_U8_P(&proc->ipv4->lip), SA_IN_U8_P(&proc->ipv4->rip), sizeof(struct in_addr)) == 0) {
+			continue;
+		}
+
+		mslog(s, proc, LOG_DEBUG, "selected IP: %s",
+		      human_addr((void*)&proc->ipv4->rip, proc->ipv4->rip_len, buf, sizeof(buf)));
+
+       		if (icmp_ping4(s, (void*)&proc->ipv4->rip) == 0)
+       			break;
+	} while(1);
 
 	return 0;
 
@@ -289,6 +289,42 @@ fail:
 	proc->ipv4 = NULL;
 
 	return ret;
+}
+
+/* returns an allocated string with the mask to apply for the prefix
+ */
+static
+char* ipv6_prefix_to_mask(char buf[MAX_IP_STR], unsigned prefix)
+{
+	switch (prefix) {
+		case 16:
+			strlcpy(buf, "ffff::", MAX_IP_STR);
+			break;
+		case 32:
+			strlcpy(buf, "ffff:ffff::", MAX_IP_STR);
+			break;
+		case 48:
+			strlcpy(buf, "ffff:ffff:ffff::", MAX_IP_STR);
+			break;
+		case 64:
+			strlcpy(buf, "ffff:ffff:ffff:ffff::", MAX_IP_STR);
+			break;
+		case 80:
+			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff::", MAX_IP_STR);
+			break;
+		case 96:
+			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff:ffff::", MAX_IP_STR);
+			break;
+		case 112:
+			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff:ffff:ffff::", MAX_IP_STR);
+			break;
+		case 128:
+			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", MAX_IP_STR);
+			break;
+		default:
+			return NULL;
+	}
+	return buf;
 }
 
 static
@@ -300,13 +336,48 @@ int get_ipv6_lease(main_server_st* s, struct proc_st* proc)
 	int ret;
 	const char* c_network;
 	char *c_netmask = NULL;
+	char c_netmask_buf[64];
 	char buf[64];
+
+	if (proc->config.ipv6_network && proc->config.ipv6_prefix) {
+		c_network = proc->config.ipv6_network;
+		c_netmask = ipv6_prefix_to_mask(c_netmask_buf, proc->config.ipv6_prefix);
+	} else {
+		c_network = s->config->network.ipv6;
+		c_netmask = ipv6_prefix_to_mask(c_netmask_buf, s->config->network.ipv6_prefix);
+	}
+
+	if (c_network == NULL || c_netmask == NULL) {
+		return 0;
+	}
+
+	ret =
+	    inet_pton(AF_INET6, c_network, SA_IN6_P(&network));
+	if (ret != 1) {
+		mslog(s, NULL, LOG_ERR, "error reading IP: %s", c_network);
+		return -1;
+	}
+
+	ret =
+	    inet_pton(AF_INET6, c_netmask, SA_IN6_P(&mask));
+	
+	if (ret != 1) {
+		mslog(s, NULL, LOG_ERR, "error reading mask: %s", c_netmask);
+		return -1;
+	}
+
+	/* mask the network */
+	for (i=0;i<sizeof(struct in6_addr);i++)
+		SA_IN6_U8_P(&network)[i] &= (SA_IN6_U8_P(&mask)[i]);
+	((struct sockaddr_in6*)&network)->sin6_family = AF_INET6;
+	((struct sockaddr_in6*)&network)->sin6_port = 0;
 
 	if (proc->config.explicit_ipv6) {
 		/* if an explicit IP is given for that client, then
-		 * don't do any IP accounting */
+		 * do implicit IP accounting. Require the address
+		 * to be odd, so we use the next even address as PtP. */
 		ret =
-		    inet_pton(AF_INET6, proc->config.explicit_ipv6, SA_IN6_P(&network));
+		    inet_pton(AF_INET6, proc->config.explicit_ipv6, SA_IN6_P(&tmp));
 
 		if (ret != 1) {
 			mslog(s, NULL, LOG_ERR, "error reading explicit IP: %s", proc->config.explicit_ipv6);
@@ -317,132 +388,96 @@ int get_ipv6_lease(main_server_st* s, struct proc_st* proc)
 		if (proc->ipv6 == NULL)
 			return ERR_MEM;
 
-        	((struct sockaddr_in6*)&network)->sin6_family = AF_INET6;
-        	((struct sockaddr_in6*)&network)->sin6_port = 0;
-		memcpy(&proc->ipv6->lip, &network, sizeof(struct sockaddr_in6));
-       		proc->ipv6->lip_len = sizeof(struct sockaddr_in6);
-	
-		memcpy(&proc->ipv6->rip, &network, sizeof(struct sockaddr_in6));
-       		proc->ipv6->rip_len = sizeof(struct sockaddr_in6);
-	
-       		return 0;
-	}
-
-	if (proc->config.ipv6_network && proc->config.ipv6_prefix) {
-		c_network = proc->config.ipv6_network;
-		c_netmask = ipv6_prefix_to_mask(proc, proc->config.ipv6_prefix);
-	} else {
-		c_network = s->config->network.ipv6;
-		c_netmask = ipv6_prefix_to_mask(proc, s->config->network.ipv6_prefix);
-	}
-
-	if (c_network && c_netmask) {
-		ret =
-		    inet_pton(AF_INET6, c_network, SA_IN6_P(&network));
-
-		if (ret != 1) {
-			mslog(s, NULL, LOG_ERR, "error reading IP: %s", c_network);
-			return -1;
-		}
-
-		ret =
-		    inet_pton(AF_INET6, c_netmask, SA_IN6_P(&mask));
-	
-		if (ret != 1) {
-			mslog(s, NULL, LOG_ERR, "error reading mask: %s", c_netmask);
-			return -1;
-		}
-		
-		proc->ipv6 = talloc_zero(proc, struct ip_lease_st);
-		if (proc->ipv6 == NULL)
-			return ERR_MEM;
-		proc->ipv6->db = &s->ip_leases;
-
-		/* mask the network */
-		for (i=0;i<sizeof(struct in6_addr);i++)
-			SA_IN6_U8_P(&network)[i] &= (SA_IN6_U8_P(&mask)[i]);
-		((struct sockaddr_in6*)&network)->sin6_family = AF_INET6;
-		((struct sockaddr_in6*)&network)->sin6_port = 0;
-
-       		memcpy(&tmp, &network, sizeof(tmp));
         	((struct sockaddr_in6*)&tmp)->sin6_family = AF_INET6;
         	((struct sockaddr_in6*)&tmp)->sin6_port = 0;
+		memcpy(&proc->ipv6->rip, &tmp, sizeof(struct sockaddr_in6));
+       		proc->ipv6->rip_len = sizeof(struct sockaddr_in6);
 
-        	((struct sockaddr_in6*)&rnd)->sin6_family = AF_INET6;
-        	((struct sockaddr_in6*)&rnd)->sin6_port = 0;
+		if (ip_lease_exists(s, &tmp, sizeof(struct sockaddr_in6)) != 0) {
+			mslog(s, proc, LOG_DEBUG, "cannot assign explicit IP %s; it is in use.", 
+			      human_addr((void*)&tmp, sizeof(struct sockaddr_in6), buf, sizeof(buf)));
+			ret = ERR_NO_IP;
+			goto fail;
+		}
 
-		do {
-			if (max_loops == 0) {
-				mslog(s, NULL, LOG_ERR, "could not figure out a valid IPv6 IP.");
-				ret = ERR_NO_IP;
-				goto fail;
-			}
-			
-			if (max_loops == MAX_IP_TRIES) {
-				memset(SA_IN6_U8_P(&rnd), 0, sizeof(struct in6_addr));
-				memcpy(SA_IN6_U8_P(&rnd)+sizeof(struct in6_addr)-5, proc->ipv4_seed, 4);
-			} else {
-				ip_from_seed(SA_IN6_U8_P(&rnd), sizeof(struct in6_addr),
-						SA_IN6_U8_P(&rnd), sizeof(struct in6_addr));
-			}
-			max_loops--;
-			
-			/* Mask the random number with the netmask */
-        		for (i=0;i<sizeof(struct in6_addr);i++)
-        			SA_IN6_U8_P(&rnd)[i] &= ~(SA_IN6_U8_P(&mask)[i]);
+		/* LIP = 1st network address */
+		memcpy(&proc->ipv6->lip, &network, sizeof(struct sockaddr_in6));
+		proc->ipv6->lip_len = sizeof(struct sockaddr_in6);
 
-			SA_IN6_U8_P(&rnd)[sizeof(struct in6_addr)-1] &= 0xFE;
+		if (memcmp(SA_IN6_U8_P(&proc->ipv6->lip), SA_IN6_U8_P(&proc->ipv6->rip), sizeof(struct in6_addr)) == 0) {
+			mslog(s, NULL, LOG_ERR, "cannot assign explicit IP: %s (net: %s)", proc->config.explicit_ipv6, c_network);
+			ret = ERR_NO_IP;
+			goto fail;
+		}
 
-			/* Now add the network to the masked random number */
-        		for (i=0;i<sizeof(struct in6_addr);i++)
-        			SA_IN6_U8_P(&rnd)[i] |= (SA_IN6_U8_P(&network)[i]);
-        			
- 			/* check if it exists in the hash table */
-			if (ip_lease_exists(s, &rnd, sizeof(struct sockaddr_in6)) != 0) {
-				mslog(s, proc, LOG_DEBUG, "cannot assign local IP %s; it is in use.", 
-				      human_addr((void*)&rnd, sizeof(struct sockaddr_in6), buf, sizeof(buf)));
-				continue;
-			}
-
-        		proc->ipv6->lip_len = sizeof(struct sockaddr_in6);
-        		memcpy(&proc->ipv6->lip, &rnd, proc->ipv6->lip_len);
-
-        		/* RIP = LIP + 1 */
-        		memcpy(&tmp, &proc->ipv6->lip, sizeof(tmp));
-        		proc->ipv6->rip_len = proc->ipv6->lip_len;
-
-	        	bignum_add(SA_IN6_U8_P(&tmp), sizeof(struct in6_addr), 1);
-
- 			/* check if it exists in the hash table */
-			if (ip_lease_exists(s, &tmp, sizeof(struct sockaddr_in6)) != 0) {
-				mslog(s, proc, LOG_DEBUG, "cannot assign remote IP %s; it is in use.", 
-				      human_addr((void*)&tmp, sizeof(struct sockaddr_in6), buf, sizeof(buf))); 
-				continue;
-			}
-
-        		memcpy(&proc->ipv6->rip, &tmp, proc->ipv6->rip_len);
-
-        		/* mask the last IP with the netmask */
-        		for (i=0;i<sizeof(struct in6_addr);i++)
-	        		SA_IN6_U8_P(&tmp)[i] &= (SA_IN6_U8_P(&mask)[i]);
-
-        		/* the result should match the network */
-	        	if (memcmp(SA_IN6_U8_P(&network), SA_IN6_U8_P(&tmp), sizeof(struct in6_addr)) != 0) {
-		        	continue;
-	        	}
-
-			mslog(s, proc, LOG_DEBUG, "selected IP: %s",
-			      human_addr((void*)&proc->ipv6->lip, proc->ipv6->lip_len, buf, sizeof(buf)));
-
-	        	if (icmp_ping6(s, (void*)&proc->ipv6->lip, (void*)&proc->ipv6->rip) == 0)
-	        		break;
-                } while(1);
+		return 0;
 	}
+
+	/* assign "random" IP */
+	proc->ipv6 = talloc_zero(proc, struct ip_lease_st);
+	if (proc->ipv6 == NULL)
+		return ERR_MEM;
+	proc->ipv6->db = &s->ip_leases;
+
+  	memcpy(&tmp, &network, sizeof(tmp));
+       	((struct sockaddr_in6*)&tmp)->sin6_family = AF_INET6;
+       	((struct sockaddr_in6*)&tmp)->sin6_port = 0;
+
+       	((struct sockaddr_in6*)&rnd)->sin6_family = AF_INET6;
+       	((struct sockaddr_in6*)&rnd)->sin6_port = 0;
+
+	do {
+		if (max_loops == 0) {
+			mslog(s, NULL, LOG_ERR, "could not figure out a valid IPv6 IP.");
+			ret = ERR_NO_IP;
+			goto fail;
+		}
+		
+		if (max_loops == MAX_IP_TRIES) {
+			memset(SA_IN6_U8_P(&rnd), 0, sizeof(struct in6_addr));
+			memcpy(SA_IN6_U8_P(&rnd)+sizeof(struct in6_addr)-5, proc->ipv4_seed, 4);
+		} else {
+			ip_from_seed(SA_IN6_U8_P(&rnd), sizeof(struct in6_addr),
+					SA_IN6_U8_P(&rnd), sizeof(struct in6_addr));
+		}
+		max_loops--;
+			
+		/* Mask the random number with the netmask */
+       		for (i=0;i<sizeof(struct in6_addr);i++)
+       			SA_IN6_U8_P(&rnd)[i] &= ~(SA_IN6_U8_P(&mask)[i]);
+
+		/* Now add the network to the masked random number */
+       		for (i=0;i<sizeof(struct in6_addr);i++)
+       			SA_IN6_U8_P(&rnd)[i] |= (SA_IN6_U8_P(&network)[i]);
+        			
+		/* check if it exists in the hash table */
+		if (ip_lease_exists(s, &rnd, sizeof(struct sockaddr_in6)) != 0) {
+			mslog(s, proc, LOG_DEBUG, "cannot assign local IP %s; it is in use.", 
+			      human_addr((void*)&rnd, sizeof(struct sockaddr_in6), buf, sizeof(buf)));
+			continue;
+		}
+
+       		proc->ipv6->rip_len = sizeof(struct sockaddr_in6);
+       		memcpy(&proc->ipv6->rip, &rnd, proc->ipv6->rip_len);
+
+		/* LIP = 1st network address */
+		memcpy(&proc->ipv6->lip, &network, sizeof(struct sockaddr_in6));
+		proc->ipv6->lip_len = sizeof(struct sockaddr_in6);
+
+		if (memcmp(SA_IN6_U8_P(&proc->ipv6->lip), SA_IN6_U8_P(&proc->ipv6->rip), sizeof(struct in6_addr)) == 0) {
+			continue;
+		}
+
+		mslog(s, proc, LOG_DEBUG, "selected IP: %s",
+		      human_addr((void*)&proc->ipv6->rip, proc->ipv6->rip_len, buf, sizeof(buf)));
+
+        	if (icmp_ping6(s, (void*)&proc->ipv6->rip) == 0)
+        		break;
+        } while(1);
 
 	return 0;
 fail:
 	talloc_free(proc->ipv6);
-	talloc_free(c_netmask);
 	proc->ipv6 = NULL;
 
 	return ret;

@@ -59,6 +59,7 @@ struct cfg_options {
 static struct cfg_options available_options[] = {
 	{ .name = "auth", .type = OPTION_MULTI_LINE, .mandatory = 1 },
 	{ .name = "route", .type = OPTION_MULTI_LINE, .mandatory = 0 },
+	{ .name = "no-route", .type = OPTION_MULTI_LINE, .mandatory = 0 },
 	{ .name = "select-group", .type = OPTION_MULTI_LINE, .mandatory = 0 },
 	{ .name = "custom-header", .type = OPTION_MULTI_LINE, .mandatory = 0 },
 	{ .name = "split-dns", .type = OPTION_MULTI_LINE, .mandatory = 0 },
@@ -499,6 +500,7 @@ unsigned force_cert_auth;
 			config->auth_types |= AUTH_TYPE_CERTIFICATE;
 		} else if (c_strcasecmp(auth[j], "certificate[optional]") == 0) {
 			config->auth_types |= AUTH_TYPE_CERTIFICATE_OPT;
+			fprintf(stderr, "The authentication option certificate[optional] is experimental and may be removed in the future\n");
 		} else {
 			fprintf(stderr, "Unknown auth method: %s\n", auth[j]);
 			exit(1);
@@ -717,11 +719,13 @@ unsigned force_cert_auth;
 		    strcmp(config->network.routes[j], "default") == 0) {
 		    	/* set default route */
 			for (i=0;i<j;i++)
-				free(config->network.routes[i]);
+				talloc_free(config->network.routes[i]);
 			config->network.routes_size = 0;
 			break;
 		}
 	}
+
+	READ_MULTI_LINE("no-route", config->network.no_routes, config->network.no_routes_size);
 
 	READ_STRING("default-select-group", config->default_select_group);
 	READ_TF("auto-select-group", auto_select_group, 0);

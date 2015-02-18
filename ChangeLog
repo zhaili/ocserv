@@ -1,3 +1,491 @@
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c: use IPV6_V6ONLY flag only when defined
+
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/system.c: use headers for clone() only when ENABLE_LINUX_NS is
+	defined
+
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am: tests: added missing file
+
+2015-02-14  Stuart Henderson <stu@spacehopper.org>
+
+	* src/main.h: header/macro fix for OpenBSD Signed-off-by: Stuart Henderson <stu@spacehopper.org>
+
+2015-02-14  Stuart Henderson <stu@spacehopper.org>
+
+	* src/tun.c: correct byte-order for tun header Signed-off-by: Stuart Henderson <stu@spacehopper.org>
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: use writev() and readv() for tun_read/write in OpenBSD
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c, src/tun.h, src/worker-vpn.c: Handle OpenBSD's
+	additional tun header
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c: oc_recvfrom_at: correctly set *addrlen
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/common.h, src/main.c: Set blocking mode to fd
+	returned by accept That addresses issues in OpenBSD where the fd is set to non blocking
+	when the accept's fd is non blocking.
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: added missing colon
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: Attempted to simplify the BSD tun handling code
+
+2015-02-13  Stuart Henderson <stu@spacehopper.org>
+
+	* src/tun.c: BSD patches for ocserv Iterate over tunXX devices, for BSDs that can't just open /dev/tun
+	to retrieve the "next available tun".  This is just copied with minor changes from openconnect/src/tun.c, Signed-off-by: Stuart Henderson <stu@spacehopper.org>
+
+2015-02-13  Stuart Henderson <stu@spacehopper.org>
+
+	* src/common.c, src/system.c, src/tun.c: BSD patches for ocserv Hi Nikos, here are patches for a couple of issues which are stopping
+	ocserv from building on OpenBSD (and might be causing problems on
+	other OS too).  There's a bit more to do for OpenBSD, it does need
+	the iteration as done in openconnect's tun.c:405-410, I might have
+	another diff for that later.  Signed-off-by: Stuart Henderson <stu@spacehopper.org>
+
+2015-02-13  Joerg Mayer <jmayer@loplof.de>
+
+	* tests/ocpasswd-test: Fix one of the places where "make distcheck"
+	fails: In case of success ocpasswd-test should not leave the last
+	test output lying around Signed-off-by: Joerg Mayer <jmayer@loplof.de>
+
+2015-02-13  Joerg Mayer <jmayer@loplof.de>
+
+	* src/Makefile.am: Fix out of tree build.  Signed-off-by: Joerg Mayer <jmayer@loplof.de>
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-radius: tests: updated
+	radius-test for fedora
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/cookies.c, src/ipc.proto, src/main-auth.c, src/main-misc.c,
+	src/main.h, src/sec-mod-auth.c: when opening a session forward the
+	received cookie to sec-module That allows to verify that the cookie hasn't been tampered without
+	relying only on the MAC.
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/log.c, src/sec-mod.h: added seclog_hex
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def: no longer
+	document the auth option certificate[optional]
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS, doc/sample.config, src/ocserv-args.def: doc update
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c, src/common.h, src/icmp-ping.c, src/icmp-ping.h,
+	src/ip-lease.c: always assign the first network address as PtP
+	address
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c: check the explicit IP addresses for existence in
+	our leases
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/user-config-explicit/test2,
+	tests/user-config-explicit/test4: test-explicit-ip: Modified illegal
+	checks for the new illegal addresses
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c: reserve the first address of the network to be set
+	as the local part in our tun devices That is used only when explicit IP addresses are set. That way we
+	don't need to separate addresses into odd and even.
+
+2015-02-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-auth.c, src/proc-search.c, src/proc-search.h: Added
+	failure codes for proc_table_add()
+
+2015-02-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-auth.c, src/main.h, src/proc-search.c, src/proc-search.h: 
+	added hash table to search via 'real' SID
+
+2015-02-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c, src/main.h, src/proc-search.c, src/proc-search.h: 
+	correctly renamed DTLS ID search functions
+
+2015-02-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-02-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c, src/ocserv-args.def, tests/Makefile.am,
+	tests/test-explicit-ip, tests/test-explicit-ip.config,
+	tests/user-config-explicit/test, tests/user-config-explicit/test2,
+	tests/user-config-explicit/test3, tests/user-config-explicit/test4: 
+	Added implicit accounting when explicit addresses are specified Only odd IP addresses can now explicitly be set, so that the next
+	even address can be used as the local one.
+
+2015-02-08  Kevin Cernekee <cernekee@gmail.com>
+
+	* src/ip-lease.c: Use distinct remote and local IPs when
+	explicit_ipv[46] is specified Currently the code sets the local interface IP to the same value as
+	the P-t-P IP: tun0      Link encap:UNSPEC  HWaddr
+	          00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00 inet
+	          addr:192.168.63.1  P-t-P:192.168.63.1  Mask:255.255.255.0 UP
+	          POINTOPOINT RUNNING NOARP MULTICAST  MTU:1341  Metric:1 RX packets:0
+	          errors:0 dropped:0 overruns:0 frame:0 TX packets:0 errors:0
+	          dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:500           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B) This doesn't seem to get things routed correctly.  e.g. pinging
+	192.168.63.1 from the ocserv gateway just loops traffic back to the
+	local machine instead of pinging the client.  So instead we'll set LIP = RIP + 1.  This isn't terribly intuitive
+	(an administrator might try to number consecutive users 192.168.1.1,
+	192.168.1.2, 192.168.1.3, ...) but it's better than the current
+	situation.  Maybe at some point, fixed IPs should also make use of
+	the hash table.
+
+2015-02-10  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-db.c: set cookie to expire when the last user
+	disconnects
+
+2015-02-08  Kevin Cernekee <cernekee@gmail.com>
+
+	* src/config.c: config: Use talloc_free() to free "route" strings Adding redundant routes triggers a glibc assertion on startup.  The
+	offending config file contained:     route = 192.168.1.0/255.255.255.0     route = default The assertion:     # ./src/ocserv -c ocserv.conf -f     *** Error in `./src/ocserv': munmap_chunk(): invalid pointer:
+	    0x0000000001703470 *** Aborted (core dumped) Fix this by calling the correct free() function.
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def: document explicit-ipv?
+
+2015-02-08  Kevin Cernekee <cernekee@gmail.com>
+
+	* src/sup-config/file.c: Allow explicit-ipv4 / explicit-ipv6
+	addresses in per-user config files If a machine is running remotely accessible services, it can be
+	helpful to assign a fixed IP address upon connection.
+
+2015-02-08  Kevin Cernekee <cernekee@gmail.com>
+
+	* src/main.c: main: Check chdir() return value This fixes:     main.c: In function ‘main’:     main.c:1025:8: warning: ignoring return value of ‘chdir’,
+	       declared with attribute warn_unused_result [-Wunused-result]
+	chdir(s->config->chroot_dir);             ^
+
+2015-02-08  Kevin Cernekee <cernekee@gmail.com>
+
+	* src/main.c: main: Fix unused variable warning on !HAVE_LIBSYSTEMD
+	builds This fixes:       CC       main.o     main.c: In function ‘listen_ports’:     main.c:276:11: warning: unused variable ‘fds’
+	      [-Wunused-variable] int ret, fds;                ^
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/cookies.c, src/cookies.h, src/main-auth.c, src/main-misc.c,
+	src/main.c, src/main.h, src/sec-mod-auth.c: eliminate double books
+	for session expiration Session expiration is now handled only by security module. That
+	simplifies the logic significantly.
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: delete client entry after message is sent
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-auth.c: Before allowing the steal of leases, check that
+	usernames match
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main.h: corrected typo
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/cookies.c, src/cookies.h, src/main-auth.c, src/main-misc.c: 
+	when we detect user disconnection, set the proper expiration time on
+	their cookies
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-cookie-timeout: test-cookie-timeout: verify that a
+	forced kill will not alter the cookie's validity
+
+2015-02-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ocserv-args.def: doc update
+
+2015-02-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: be explicit that dbus support is incomplete
+
+2015-02-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-02-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ctl.proto, src/ipc.proto,
+	src/main-auth.c, src/main-ctl-unix.c, src/main-misc.c,
+	src/occtl-unix.c, src/ocserv-args.def, src/sup-config/file.c,
+	src/vpn.h, src/worker-auth.c, src/worker-misc.c, src/worker-vpn.c,
+	src/worker.h: Added support for no-routes (X-Split-Exclude)
+
+2015-02-05  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: only use libseccomp in x86 (64) and ARM
+
+2015-02-05  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* README: updated package dependencies
+
+2015-01-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am, tests/test-broken-seccomp.c: Revert "tests:
+	added test for broken seccomp" This reverts commit 889d6ba0b7ffdc7b38086e80654e21ca7e515944.
+
+2015-01-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-broken-seccomp.c: Revert "tests: only run the seccomp
+	check if it was enabled" This reverts commit 00a2caee368cacc59be963288f705070b2c54a80.
+
+2015-01-30  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-privs.c: seccomp: allow _newselect since it is called
+	in x86 instead of select
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: configure: specify that experimental are not
+	recommended
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: bumped version
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: rearrange supported options
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-broken-seccomp.c: tests: only run the seccomp check if
+	it was enabled
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-01-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/test-broken-seccomp.c: tests: added test
+	for broken seccomp
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-cookie-timeout.config: tests: added missing file
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: configure: ask for libfreeradius-client 1.1.7
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-pass, tests/test1.passwd: tests: check for empty
+	password support
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-ban.c: sec-mod: use ctime() to print the ban list
+	expiration time
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: sec-mod: pass all failures through
+	handle_sec_auth_res() That will set the proper state to the user entry.
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: worker: allow empty passwords
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/log.c, src/sec-mod.h, src/system.c: moved LOG_DEBUG messages
+	to debug level 3 or higher
+
+2015-01-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: moved some debugging messages into http level
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am, tests/docker-common.sh,
+	tests/docker-ocserv/Dockerfile-debian-radius,
+	tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/Makefile.am,
+	tests/docker-ocserv/freeradius-users,
+	tests/docker-ocserv/ocserv-radius.conf,
+	tests/docker-ocserv/radius-clients.conf,
+	tests/docker-ocserv/radiusclient-servers,
+	tests/docker-ocserv/radiusclient.conf, tests/full-test,
+	tests/radius-test, tests/unix-test: tests: added radius test
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-cookie-timeout, tests/test-cookie-timeout-2,
+	tests/test-multi-cookie: tests: made pid file names unique
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod-db.c, src/sec-mod.h, src/vpn.h,
+	src/worker-auth.c: harmonize the time cookies are stored in security
+	module and main server
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am, tests/test-cookie-timeout-2,
+	tests/test-cookie-timeout-2.config: tests: added check to ensure
+	that cookies remain valid during all session time
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am, tests/test-cookie-timeout: tests: check whether
+	the expiration time in cookies in checked
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-multi-cookie: test-multi-cookie: corrected test
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* : updated design documents
+
+2015-01-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/README.radius: account freeradius-client version 1.1.7 in
+	README.radius.
+
+2015-01-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* TODO: doc update
+
+2015-01-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: enable min-reauth-time in
+	default configuration
+
+2015-01-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/plain.c, src/auth/radius.c: enforce the actual number of
+	MAX_TRIES in authentication
+
+2015-01-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* README: added gperf a development dependency
+
+2015-01-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl-dbus.c: occtl: corrected sending of dbus msgs
+
+2015-01-24  Aron Xu <aron@debian.org>
+
+	* doc/systemd/socket-activated/ocserv.service,
+	doc/systemd/standalone/ocserv.service: Run after
+	network-online.target, instead of network.target Signed-off-by: Aron Xu <aron@debian.org>
+
+2015-01-24  Aron Xu <aron@debian.org>
+
+	* doc/systemd/socket-activated/ocserv.service,
+	doc/systemd/standalone/ocserv.service: Remove syslog.target from
+	systemd service files syslog is now socket-activated on all major distributions, hence the
+	target is deprecated.  Signed-off-by: Aron Xu <aron@debian.org>
+
+2015-01-24  Aron Xu <aron@debian.org>
+
+	* doc/systemd/socket-activated/ocserv.service,
+	doc/systemd/standalone/ocserv.service: Run in foreground when using
+	systemd Signed-off-by: Aron Xu <aron@debian.org>
+
+2015-01-24  Aron Xu <aron@debian.org>
+
+	* configure.ac, src/Makefile.am, src/main.c: Replace
+	LIBSYSTEMD_DAEMON with LIBSYSTEMD Signed-off-by: Aron Xu <aron@debian.org>
+
+2015-01-24  Aron Xu <aron@debian.org>
+
+	* doc/systemd/socket-activated/ocserv.socket: Listen to Port 443 as
+	in sample.config Signed-off-by: Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+2015-01-24  Aron Xu <aron@debian.org>
+
+	* src/main-ctl-dbus.c: Update call parameters of str_init() for
+	--with-dbus Signed-off-by: Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+2015-01-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-01-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def: doc update
+
+2015-01-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: worker: calculate MTU prior to sending IPv6
+	addresses That way we can disable IPv6 if the calculated MTU size is less than
+	the allowed by IPv6.
+
 2015-01-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* src/Makefile.am: include http-heads.h into ocserv's sources

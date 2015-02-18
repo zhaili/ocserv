@@ -106,7 +106,12 @@ extern int syslog_open;
 #define LOG_HTTP_DEBUG 2048
 #define LOG_TRANSFER_DEBUG 2049
 
-#define MAX_AUTH_SECS 40
+/* Allow few seconds prior to cleaning up entries, to avoid any race
+ * conditions when session control is enabled.
+ */
+#define AUTH_SLACK_TIME 10
+
+
 #define MAX_CIPHERSUITE_NAME 64
 #define MAX_MSG_SIZE 256
 #define SID_SIZE 16
@@ -141,6 +146,10 @@ struct group_cfg_st {
 	/* routes to be forwarded to the client */
 	char **routes;
 	unsigned int routes_size;
+
+	/* routes that are excluded */
+	char **no_routes;
+	unsigned int no_routes_size;
 
 	/* routes to be applied to the server */
 	char **iroutes;
@@ -188,6 +197,10 @@ struct vpn_st {
 
 	char **routes;
 	unsigned int routes_size;
+
+	/* excluded routes */
+	char **no_routes;
+	unsigned int no_routes_size;
 
 	char **dns;
 	unsigned int dns_size;

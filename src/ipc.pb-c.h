@@ -94,10 +94,12 @@ struct  _AuthReplyMsg
   char *xml_config_file;
   char *ipv4_network;
   char *ipv6_network;
+  size_t n_no_routes;
+  char **no_routes;
 };
 #define AUTH_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&auth_reply_msg__descriptor) \
-    , 0, 0,{0,NULL}, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, NULL }
+    , 0, 0,{0,NULL}, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, NULL, 0,NULL }
 
 
 struct  _SessionResumeFetchMsg
@@ -263,6 +265,8 @@ struct  _SecAuthSessionMsg
 {
   ProtobufCMessage base;
   ProtobufCBinaryData sid;
+  protobuf_c_boolean has_cookie;
+  ProtobufCBinaryData cookie;
   protobuf_c_boolean has_uptime;
   uint32_t uptime;
   protobuf_c_boolean has_bytes_in;
@@ -272,7 +276,7 @@ struct  _SecAuthSessionMsg
 };
 #define SEC_AUTH_SESSION_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_msg__descriptor) \
-    , {0,NULL}, 0,0, 0,0, 0,0 }
+    , {0,NULL}, 0,{0,NULL}, 0,0, 0,0, 0,0 }
 
 
 struct  _SecAuthSessionReplyMsg
@@ -308,10 +312,12 @@ struct  _SecAuthSessionReplyMsg
   uint32_t net_priority;
   char *explicit_ipv4;
   char *explicit_ipv6;
+  size_t n_no_routes;
+  char **no_routes;
 };
 #define SEC_AUTH_SESSION_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_reply_msg__descriptor) \
-    , 0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL }
+    , 0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL, 0,NULL }
 
 
 /* AuthCookieRequestMsg methods */
