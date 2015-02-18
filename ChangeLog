@@ -1,3 +1,83 @@
+2015-02-18  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS, configure.ac: bumped version
+
+2015-02-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tun.c: ip-lease: use 128 as prefix in local IP
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-common.sh,
+	tests/docker-ocserv/Dockerfile-debian-tcp,
+	tests/docker-ocserv/Dockerfile-debian-unix, tests/full-test,
+	tests/radius-test, tests/unix-test: tests: updated for new IPv4
+	assignment
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ocserv-args.def: manpage: generate a DER PKCS #12 file
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/common.h, src/ip-lease.c, src/main-resume.c: 
+	avoid using the IPv4 network address as tun address, and simplify
+	valid address checking
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c: ip-lease: fixed hash value for IPv6 leases This corrects the unique check for assigned IPv6 addresses.
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test, tests/radius-test: tests: fix pings to IPv6
+	addresses for the new tun address
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c: In IPv6 use the network address + 1 as the tun
+	address
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/ocserv-radius.conf,
+	tests/docker-ocserv/radius-clients.conf, tests/radius-test: 
+	radius-test: completed test
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-unix,
+	tests/docker-ocserv/ocserv.conf, tests/full-test, tests/unix-test: 
+	full/unix-test: updated for new IP assignments
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c, src/tun.c: Linux ipv6: assign route to the remote
+	IP
+
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c: force relative names on the socket file to allow it
+	being accessible from main and workers
+
+2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: configure: use seccomp where it is available
+
 2015-02-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* src/main.c: use IPV6_V6ONLY flag only when defined

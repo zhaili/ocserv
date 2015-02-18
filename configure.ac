@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.9.1], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.9.2], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -283,9 +283,6 @@ AC_ARG_ENABLE(seccomp,
 
 if [ test "$seccomp_enabled" = "yes" ];then
 AC_LIB_HAVE_LINKFLAGS(seccomp,, [#include <seccomp.h>
-#if !defined(__i386__) && !defined(__arm__) && !defined(__x86_64__)
-# error 1
-#endif
 ], [seccomp_init(0);])
  if [ test -z "$LIBSECCOMP" ];then
 	seccomp_enabled="no"

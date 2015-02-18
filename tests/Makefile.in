@@ -1115,12 +1115,13 @@ SUBDIRS = docker-ocserv
 dist_check_SCRIPTS = test-pass test-pass-cert test-cert test-iroute test-pass-script \
 	test-multi-cookie test-pam test-stress full-test test-group-pass test-pass-group-cert \
 	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
-	test-cookie-timeout test-cookie-timeout-2 radius-test test-explicit-ip
+	test-cookie-timeout test-cookie-timeout-2 radius-test test-explicit-ip \
+	radius-test
 
 TESTS = test-pass test-pass-cert test-cert test-iroute test-pass-script \
 	test-multi-cookie full-test test-group-pass test-pass-group-cert \
 	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
-	test-cookie-timeout test-cookie-timeout-2 test-explicit-ip
+	test-cookie-timeout test-cookie-timeout-2 test-explicit-ip radius-test
 
 TESTS_ENVIRONMENT = srcdir="$(srcdir)" \
 	top_builddir="$(top_builddir)"
@@ -1508,6 +1509,13 @@ test-cookie-timeout-2.log: test-cookie-timeout-2
 test-explicit-ip.log: test-explicit-ip
 	@p='test-explicit-ip'; \
 	b='test-explicit-ip'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+radius-test.log: radius-test
+	@p='radius-test'; \
+	b='radius-test'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
