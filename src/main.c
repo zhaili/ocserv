@@ -47,7 +47,7 @@
 # include <tcpd.h>
 #endif
 
-#ifdef HAVE_LIBSYSTEMD_DAEMON
+#ifdef HAVE_LIBSYSTEMD
 # include <systemd/sd-daemon.h>
 #endif
 #include <main.h>
@@ -273,12 +273,15 @@ listen_ports(void *pool, struct cfg_st* config,
 {
 	struct addrinfo hints, *res;
 	char portname[6];
-	int ret, fds;
+	int ret;
+#ifdef HAVE_LIBSYSTEMD
+	int fds;
+#endif
 
 	list_head_init(&list->head);
 	list->total = 0;
 
-#ifdef HAVE_LIBSYSTEMD_DAEMON
+#ifdef HAVE_LIBSYSTEMD
 	/* Support for systemd socket-activatable service */
 	if ((fds=sd_listen_fds(0)) > 0) {
 		/* if we get our fds from systemd */
@@ -425,6 +428,7 @@ void set_worker_udp_opts(int fd, int family)
 {
 int y;
 
+#ifdef IPV6_V6ONLY
 	if (family == AF_INET6) {
 		y = 1;
 		/* avoid listen on ipv6 addresses failing
@@ -432,6 +436,7 @@ int y;
 		setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY,
 			   (const void *) &y, sizeof(y));
 	}
+#endif
 
 	y = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &y, sizeof(y));
@@ -606,8 +611,6 @@ void clear_lists(main_server_st *s)
 			close(ctmp->fd);
 		if (ctmp->tun_lease.fd >= 0)
 			close(ctmp->tun_lease.fd);
-		if (ctmp->cookie_ptr)
-			ctmp->cookie_ptr->proc = NULL;
 		list_del(&ctmp->list);
 		safe_memset(ctmp, 0, sizeof(*ctmp));
 		talloc_free(ctmp);
@@ -623,7 +626,6 @@ void clear_lists(main_server_st *s)
 	ip_lease_deinit(&s->ip_leases);
 	proc_table_deinit(s);
 	ctl_handler_deinit(s);
-	cookie_db_deinit(&s->cookies);
 }
 
 static void kill_children(main_server_st* s)
@@ -734,7 +736,7 @@ int sfd = -1;
 	now = time(0);
 
 	if (match_ip_only == 0) {
-		proc_to_send = proc_search_sid(s, session_id, session_id_size);
+		proc_to_send = proc_search_dtls_id(s, session_id, session_id_size);
 	} else {
 		proc_to_send = proc_search_ip(s, &cli_addr, cli_addr_size);
 	}
@@ -859,7 +861,6 @@ unsigned total = 10;
 		need_maintenance = 0;
 		mslog(s, NULL, LOG_DEBUG, "performing maintenance");
 		expire_tls_sessions(s);
-		expire_cookies(&s->cookies);
 		alarm(MAINTAINANCE_TIME(s));
 	}
 }
@@ -932,7 +933,6 @@ int main(int argc, char** argv)
 	list_head_init(&s->proc_list.head);
 	list_head_init(&s->script_list.head);
 	tls_cache_init(s, &s->tls_db);
-	cookie_db_init(s, &s->cookies);
 	ip_lease_init(&s->ip_leases);
 	proc_table_init(s);
 
@@ -1021,8 +1021,13 @@ int main(int argc, char** argv)
 
 	/* chdir to our chroot directory, to allow opening the sec-mod
 	 * socket if necessary. */
-	if (s->config->chroot_dir)
-		chdir(s->config->chroot_dir);
+	if (s->config->chroot_dir) {
+		if (chdir(s->config->chroot_dir) != 0) {
+			e = errno;
+			mslog(s, NULL, LOG_ERR, "cannot chdir to %s: %s", s->config->chroot_dir, strerror(e));
+			exit(1);
+		}
+	}
 	ms_sleep(100); /* give some time for sec-mod to initialize */
 
 	/* Initialize certificates */
@@ -1108,6 +1113,10 @@ int main(int argc, char** argv)
 					continue;
 				}
 				set_cloexec_flag (fd, 1);
+#ifndef __linux__
+				/* OpenBSD sets the non-blocking flag if accept's fd is non-blocking */
+				set_block(fd);
+#endif
 
 				if (s->config->max_clients > 0 && s->active_clients >= s->config->max_clients) {
 					close(fd);

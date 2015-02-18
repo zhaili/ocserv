@@ -963,7 +963,7 @@ static int tun_mainloop(struct worker_st *ws, struct timespec *tnow)
 	gnutls_datum_t dtls_to_send;
 	gnutls_datum_t cstp_to_send;
 
-	l = read(ws->tun_fd, ws->buffer + 8, ws->conn_mtu);
+	l = tun_read(ws->tun_fd, ws->buffer + 8, ws->conn_mtu);
 	if (l < 0) {
 		e = errno;
 
@@ -1090,6 +1090,47 @@ char *replace_vals(worker_st *ws, const char *txt)
 	}
 
 	return (char*)str.data;
+}
+
+static int send_routes(worker_st *ws, struct http_req_st *req,
+		       char **routes, unsigned routes_size,
+		       bool include)
+{
+	unsigned i;
+	unsigned ip6;
+	const char *txt;
+	int ret;
+
+	if (include)
+		txt = "Include";
+	else
+		txt = "Exclude";
+
+	for (i = 0; i < routes_size; i++) {
+		if (strchr(routes[i], ':') != 0)
+			ip6 = 1;
+		else
+			ip6 = 0;
+
+		if (req->no_ipv6 != 0 && ip6 != 0)
+			continue;
+		if (req->no_ipv4 != 0 && ip6 == 0)
+			continue;
+		oclog(ws, LOG_DEBUG, "%s route %s", txt, routes[i]);
+
+		if (ip6 != 0 && ws->full_ipv6) {
+			ret = cstp_printf(ws,
+				 "X-CSTP-Split-%s-IP6: %s\r\n",
+				 txt, routes[i]);
+		} else {
+			ret = cstp_printf(ws,
+				 "X-CSTP-Split-%s: %s\r\n",
+				 txt, routes[i]);
+		}
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
 }
 
 /* connect_handler:
@@ -1224,6 +1265,57 @@ static int connect_handler(worker_st * ws)
 		oclog(ws, LOG_DEBUG, "disabling UDP (DTLS) connection");
 	}
 
+	/* calculate base MTU */
+	if (ws->config->default_mtu > 0) {
+		ws->vinfo.mtu = ws->config->default_mtu;
+	}
+
+	if (req->base_mtu > 0) {
+		oclog(ws, LOG_DEBUG, "peer's base MTU is %u", req->base_mtu);
+		ws->vinfo.mtu = MIN(ws->vinfo.mtu, req->base_mtu);
+	}
+
+	sl = sizeof(max);
+	ret = getsockopt(ws->conn_fd, IPPROTO_TCP, TCP_MAXSEG, &max, &sl);
+	if (ret == -1) {
+		e = errno;
+		oclog(ws, LOG_INFO, "error in getting TCP_MAXSEG: %s",
+		      strerror(e));
+	} else {
+		max -= 13;
+		oclog(ws, LOG_DEBUG, "TCP MSS is %u", max);
+		if (max > 0 && max < ws->vinfo.mtu) {
+			oclog(ws, LOG_DEBUG,
+			      "reducing MTU due to TCP MSS to %u", max);
+			ws->vinfo.mtu = max;
+		}
+	}
+
+	ret = cstp_printf(ws, "X-CSTP-Base-MTU: %u\r\n", ws->vinfo.mtu);
+	SEND_ERR(ret);
+	oclog(ws, LOG_DEBUG, "CSTP Base MTU is %u bytes", ws->vinfo.mtu);
+
+	/* calculate TLS channel MTU */
+	if (ws->session == NULL) {
+		/* wild guess */
+		ws->crypto_overhead = CSTP_OVERHEAD +
+			tls_get_overhead(GNUTLS_TLS1_0, GNUTLS_CIPHER_AES_128_CBC, GNUTLS_MAC_SHA1);
+	} else {
+		ws->crypto_overhead = CSTP_OVERHEAD +
+		    tls_get_overhead(gnutls_protocol_get_version(ws->session),
+				     gnutls_cipher_get(ws->session),
+				     gnutls_mac_get(ws->session));
+	}
+
+	/* plaintext MTU is the device MTU minus the overhead
+	 * of the CSTP protocol. */
+	ws->conn_mtu = ws->vinfo.mtu - ws->crypto_overhead;
+	if (ws->conn_mtu < 1280 && ws->vinfo.ipv6 && req->no_ipv6 == 0) {
+		oclog(ws, LOG_INFO, "Connection MTU (%d) is not sufficient for IPv6 (1280)", ws->conn_mtu);
+		req->no_ipv6 = 1;
+	}
+
+	/* Send IP addresses */
 	if (ws->vinfo.ipv4 && req->no_ipv4 == 0) {
 		oclog(ws, LOG_DEBUG, "sending IPv4 %s", ws->vinfo.ipv4);
 		ret =
@@ -1326,54 +1418,18 @@ static int connect_handler(worker_st * ws)
 	}
 
 	if (ws->default_route == 0) {
-		for (i = 0; i < ws->vinfo.routes_size; i++) {
-			if (strchr(ws->vinfo.routes[i], ':') != 0)
-				ip6 = 1;
-			else
-				ip6 = 0;
+		ret = send_routes(ws, req, ws->vinfo.routes, ws->vinfo.routes_size, 1);
+		SEND_ERR(ret);
 
-			if (req->no_ipv6 != 0 && ip6 != 0)
-				continue;
-			if (req->no_ipv4 != 0 && ip6 == 0)
-				continue;
-			oclog(ws, LOG_DEBUG, "adding route %s", ws->vinfo.routes[i]);
-
-			if (ip6 != 0 && ws->full_ipv6) {
-				ret = cstp_printf(ws,
-					 "X-CSTP-Split-Include-IP6: %s\r\n",
-					 ws->vinfo.routes[i]);
-			} else {
-				ret = cstp_printf(ws,
-					 "X-CSTP-Split-Include: %s\r\n",
-					 ws->vinfo.routes[i]);
-			}
-			SEND_ERR(ret);
-		}
-
-		for (i = 0; i < ws->routes_size; i++) {
-			if (strchr(ws->routes[i], ':') != 0)
-				ip6 = 1;
-			else
-				ip6 = 0;
-
-			if (req->no_ipv6 != 0 && ip6 != 0)
-				continue;
-			if (req->no_ipv4 != 0 && ip6 == 0)
-				continue;
-			oclog(ws, LOG_DEBUG, "adding private route %s", ws->routes[i]);
-
-			if (ip6 != 0 && ws->full_ipv6) {
-				ret = cstp_printf(ws,
-					 "X-CSTP-Split-Include-IP6: %s\r\n",
-					 ws->routes[i]);
-			} else {
-				ret = cstp_printf(ws,
-					 "X-CSTP-Split-Include: %s\r\n",
-					 ws->routes[i]);
-			}
-			SEND_ERR(ret);
-		}
+		ret = send_routes(ws, req, ws->routes, ws->routes_size, 1);
+		SEND_ERR(ret);
 	}
+
+	ret = send_routes(ws, req, ws->vinfo.no_routes, ws->vinfo.no_routes_size, 0);
+	SEND_ERR(ret);
+
+	ret = send_routes(ws, req, ws->no_routes, ws->no_routes_size, 0);
+	SEND_ERR(ret);
 
 	ret =
 	    cstp_printf(ws, "X-CSTP-Keepalive: %u\r\n",
@@ -1457,51 +1513,6 @@ static int connect_handler(worker_st * ws)
 		}
 	}
 
-	/* calculate base MTU */
-	if (ws->config->default_mtu > 0) {
-		ws->vinfo.mtu = ws->config->default_mtu;
-	}
-
-	if (req->base_mtu > 0) {
-		oclog(ws, LOG_DEBUG, "peer's base MTU is %u", req->base_mtu);
-		ws->vinfo.mtu = MIN(ws->vinfo.mtu, req->base_mtu);
-	}
-
-	sl = sizeof(max);
-	ret = getsockopt(ws->conn_fd, IPPROTO_TCP, TCP_MAXSEG, &max, &sl);
-	if (ret == -1) {
-		e = errno;
-		oclog(ws, LOG_INFO, "error in getting TCP_MAXSEG: %s",
-		      strerror(e));
-	} else {
-		max -= 13;
-		oclog(ws, LOG_DEBUG, "TCP MSS is %u", max);
-		if (max > 0 && max < ws->vinfo.mtu) {
-			oclog(ws, LOG_DEBUG,
-			      "reducing MTU due to TCP MSS to %u", max);
-			ws->vinfo.mtu = max;
-		}
-	}
-
-	ret = cstp_printf(ws, "X-CSTP-Base-MTU: %u\r\n", ws->vinfo.mtu);
-	SEND_ERR(ret);
-	oclog(ws, LOG_DEBUG, "CSTP Base MTU is %u bytes", ws->vinfo.mtu);
-
-	/* calculate TLS channel MTU */
-	if (ws->session == NULL) {
-		/* wild guess */
-		ws->crypto_overhead = CSTP_OVERHEAD +
-			tls_get_overhead(GNUTLS_TLS1_0, GNUTLS_CIPHER_AES_128_CBC, GNUTLS_MAC_SHA1);
-	} else {
-		ws->crypto_overhead = CSTP_OVERHEAD +
-		    tls_get_overhead(gnutls_protocol_get_version(ws->session),
-				     gnutls_cipher_get(ws->session),
-				     gnutls_mac_get(ws->session));
-	}
-
-	/* plaintext MTU is the device MTU minus the overhead
-	 * of the CSTP protocol. */
-	ws->conn_mtu = ws->vinfo.mtu - ws->crypto_overhead;
 
 	/* set TCP socket options */
 	if (ws->config->output_buffer > 0) {
@@ -1875,7 +1886,7 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 	case AC_PKT_DATA:
 		oclog(ws, LOG_TRANSFER_DEBUG, "writing %d byte(s) to TUN",
 		      (int)buf_size);
-		ret = force_write(ws->tun_fd, plain, plain_size);
+		ret = tun_write(ws->tun_fd, plain, plain_size);
 		if (ret == -1) {
 			e = errno;
 			oclog(ws, LOG_ERR, "could not write data to tun: %s",

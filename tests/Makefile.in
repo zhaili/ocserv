@@ -1106,16 +1106,21 @@ EXTRA_DIST = ca-key.pem ca.pem common.sh server-cert.pem server-key.pem test1.co
 	user-config/test user-config-opt/test test-pass-script.config test-multi-cookie.config test-pam.config \
 	test-stress.config user-cert-wrong.pem connect-script test-group.passwd \
 	test-group-pass.config user-group-cert.pem user-group-key.pem test-user-group-cert.config \
-	test-user-group-cert-no-pass.config docker-common.sh
+	test-user-group-cert-no-pass.config docker-common.sh test-cookie-timeout.config \
+	test-cookie-timeout-2.config user-config-explicit/test test-explicit-ip.config \
+	test-explicit-ip user-config-explicit/test2 user-config-explicit/test3 \
+	user-config-explicit/test4 test-pass-opt-cert.config
 
 SUBDIRS = docker-ocserv
 dist_check_SCRIPTS = test-pass test-pass-cert test-cert test-iroute test-pass-script \
 	test-multi-cookie test-pam test-stress full-test test-group-pass test-pass-group-cert \
-	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert
+	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
+	test-cookie-timeout test-cookie-timeout-2 radius-test test-explicit-ip
 
 TESTS = test-pass test-pass-cert test-cert test-iroute test-pass-script \
 	test-multi-cookie full-test test-group-pass test-pass-group-cert \
-	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert
+	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
+	test-cookie-timeout test-cookie-timeout-2 test-explicit-ip
 
 TESTS_ENVIRONMENT = srcdir="$(srcdir)" \
 	top_builddir="$(top_builddir)"
@@ -1482,6 +1487,27 @@ unix-test.log: unix-test
 test-pass-opt-cert.log: test-pass-opt-cert
 	@p='test-pass-opt-cert'; \
 	b='test-pass-opt-cert'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test-cookie-timeout.log: test-cookie-timeout
+	@p='test-cookie-timeout'; \
+	b='test-cookie-timeout'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test-cookie-timeout-2.log: test-cookie-timeout-2
+	@p='test-cookie-timeout-2'; \
+	b='test-cookie-timeout-2'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test-explicit-ip.log: test-explicit-ip
+	@p='test-explicit-ip'; \
+	b='test-explicit-ip'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

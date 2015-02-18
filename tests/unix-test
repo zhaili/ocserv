@@ -27,6 +27,7 @@ if [ $? != 0 ];then
 fi
 
 UNIX=1
+CONFIG="unix"
 IMAGE=ocserv-test2
 . ./docker-common.sh
 

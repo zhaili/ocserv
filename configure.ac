@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.9.0], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.9.1], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -50,7 +50,7 @@ AC_DEFINE([HAVE_PKCS11], [], [PKCS11 detected in gnutls])
 
 dbus_enabled=no
 AC_ARG_WITH(dbus,
-  AS_HELP_STRING([--with-dbus], [use dbus instead of unix sockets]),
+  AS_HELP_STRING([--with-dbus], [use dbus instead of unix sockets (dbus support is incomplete)]),
   test_for_dbus=$withval,
   test_for_dbus=no)
 
@@ -224,7 +224,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([
 		  [AC_MSG_RESULT(no)
    	           AC_MSG_WARN([[
 *** 
-*** libfreeradius-client git-20141213 was not found. Radius support will be disabled.
+*** freeradius-client 1.1.7 or later was not found. Radius support will be disabled.
 *** ]])])
 LIBS="$oldlibs"
 fi
@@ -282,7 +282,11 @@ AC_ARG_ENABLE(seccomp,
     seccomp_enabled=$enableval, seccomp_enabled=yes)
 
 if [ test "$seccomp_enabled" = "yes" ];then
-AC_LIB_HAVE_LINKFLAGS(seccomp,, [#include <seccomp.h>], [seccomp_init(0);])
+AC_LIB_HAVE_LINKFLAGS(seccomp,, [#include <seccomp.h>
+#if !defined(__i386__) && !defined(__arm__) && !defined(__x86_64__)
+# error 1
+#endif
+], [seccomp_init(0);])
  if [ test -z "$LIBSECCOMP" ];then
 	seccomp_enabled="no"
  else
@@ -319,7 +323,7 @@ AC_ARG_ENABLE(systemd,
 
 if [ test "$systemd_enabled" = "yes" ];then
 AC_LIB_HAVE_LINKFLAGS(systemd,, [#include <systemd/sd-daemon.h>], [sd_listen_fds(0);])
- if [ test -z "$LIBSYSTEMD_DAEMON" ];then
+ if [ test -z "$LIBSYSTEMD" ];then
 	systemd_enabled="no"
  else
 	systemd_enabled="yes"
@@ -466,10 +470,12 @@ Summary of build options:
   
   PAM auth backend:     ${pam_enabled}
   Radius auth backend:  ${radius_enabled}
+  Anyconnect compat:    ${anyconnect_enabled}
   TCP wrappers:         ${libwrap_enabled}
   systemd:              ${systemd_enabled}
   (socket activation)
-  dbus:                 ${dbus_enabled}
+  seccomp:              ${seccomp_enabled}
+  LZ4 compression:      ${enable_lz4}
   readline:             ${have_readline}
   libnl3:               ${have_libnl3}
   glibc (sha2crypt):    ${have_glibc}
@@ -482,10 +488,8 @@ Summary of build options:
 
 AC_MSG_NOTICE([
 
-Experimental options:
-  seccomp:              ${seccomp_enabled}
+Experimental (not recommended) options:
   Linux namespaces:     ${linux_ns_enabled}
-  LZ4 compression:      ${enable_lz4}
-  Anyconnect compat:    ${anyconnect_enabled}
+  dbus:                 ${dbus_enabled}
 ])
 

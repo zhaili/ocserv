@@ -734,7 +734,7 @@ const ProtobufCMessageDescriptor auth_cookie_request_msg__descriptor =
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const protobuf_c_boolean auth_reply_msg__no_udp__default_value = 0;
-static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[23] =
+static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[24] =
 {
   {
     "reply",
@@ -1012,6 +1012,18 @@ static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[23] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "no_routes",
+    29,
+    PROTOBUF_C_LABEL_REPEATED,
+    PROTOBUF_C_TYPE_STRING,
+    offsetof(AuthReplyMsg, n_no_routes),
+    offsetof(AuthReplyMsg, no_routes),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned auth_reply_msg__field_indices_by_name[] = {
   16,   /* field[16] = dns */
@@ -1028,6 +1040,7 @@ static const unsigned auth_reply_msg__field_indices_by_name[] = {
   4,   /* field[4] = msg */
   17,   /* field[17] = nbns */
   14,   /* field[14] = net_priority */
+  23,   /* field[23] = no_routes */
   18,   /* field[18] = no_udp */
   0,   /* field[0] = reply */
   15,   /* field[15] = routes */
@@ -1043,7 +1056,7 @@ static const ProtobufCIntRange auth_reply_msg__number_ranges[3 + 1] =
   { 1, 0 },
   { 3, 1 },
   { 15, 9 },
-  { 0, 23 }
+  { 0, 24 }
 };
 const ProtobufCMessageDescriptor auth_reply_msg__descriptor =
 {
@@ -1053,7 +1066,7 @@ const ProtobufCMessageDescriptor auth_reply_msg__descriptor =
   "AuthReplyMsg",
   "",
   sizeof(AuthReplyMsg),
-  23,
+  24,
   auth_reply_msg__field_descriptors,
   auth_reply_msg__field_indices_by_name,
   3,  auth_reply_msg__number_ranges,
@@ -1950,7 +1963,7 @@ const ProtobufCMessageDescriptor cookie__descriptor =
   (ProtobufCMessageInit) cookie__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[4] =
+static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[5] =
 {
   {
     "sid",
@@ -1959,6 +1972,18 @@ static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[4]
     PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
     offsetof(SecAuthSessionMsg, sid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "cookie",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BYTES,
+    offsetof(SecAuthSessionMsg, has_cookie),
+    offsetof(SecAuthSessionMsg, cookie),
     NULL,
     NULL,
     0,             /* flags */
@@ -2002,16 +2027,16 @@ static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[4]
   },
 };
 static const unsigned sec_auth_session_msg__field_indices_by_name[] = {
-  2,   /* field[2] = bytes_in */
-  3,   /* field[3] = bytes_out */
+  3,   /* field[3] = bytes_in */
+  4,   /* field[4] = bytes_out */
+  1,   /* field[1] = cookie */
   0,   /* field[0] = sid */
-  1,   /* field[1] = uptime */
+  2,   /* field[2] = uptime */
 };
-static const ProtobufCIntRange sec_auth_session_msg__number_ranges[2 + 1] =
+static const ProtobufCIntRange sec_auth_session_msg__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 3, 1 },
-  { 0, 4 }
+  { 0, 5 }
 };
 const ProtobufCMessageDescriptor sec_auth_session_msg__descriptor =
 {
@@ -2021,14 +2046,14 @@ const ProtobufCMessageDescriptor sec_auth_session_msg__descriptor =
   "SecAuthSessionMsg",
   "",
   sizeof(SecAuthSessionMsg),
-  4,
+  5,
   sec_auth_session_msg__field_descriptors,
   sec_auth_session_msg__field_indices_by_name,
-  2,  sec_auth_session_msg__number_ranges,
+  1,  sec_auth_session_msg__number_ranges,
   (ProtobufCMessageInit) sec_auth_session_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descriptors[19] =
+static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descriptors[20] =
 {
   {
     "reply",
@@ -2258,6 +2283,18 @@ static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descript
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "no_routes",
+    28,
+    PROTOBUF_C_LABEL_REPEATED,
+    PROTOBUF_C_TYPE_STRING,
+    offsetof(SecAuthSessionReplyMsg, n_no_routes),
+    offsetof(SecAuthSessionReplyMsg, no_routes),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned sec_auth_session_reply_msg__field_indices_by_name[] = {
   12,   /* field[12] = cgroup */
@@ -2272,6 +2309,7 @@ static const unsigned sec_auth_session_reply_msg__field_indices_by_name[] = {
   5,   /* field[5] = iroutes */
   7,   /* field[7] = nbns */
   16,   /* field[16] = net_priority */
+  19,   /* field[19] = no_routes */
   1,   /* field[1] = no_udp */
   0,   /* field[0] = reply */
   3,   /* field[3] = require_cert */
@@ -2284,7 +2322,7 @@ static const ProtobufCIntRange sec_auth_session_reply_msg__number_ranges[2 + 1] 
 {
   { 1, 0 },
   { 10, 1 },
-  { 0, 19 }
+  { 0, 20 }
 };
 const ProtobufCMessageDescriptor sec_auth_session_reply_msg__descriptor =
 {
@@ -2294,7 +2332,7 @@ const ProtobufCMessageDescriptor sec_auth_session_reply_msg__descriptor =
   "SecAuthSessionReplyMsg",
   "",
   sizeof(SecAuthSessionReplyMsg),
-  19,
+  20,
   sec_auth_session_reply_msg__field_descriptors,
   sec_auth_session_reply_msg__field_indices_by_name,
   2,  sec_auth_session_reply_msg__number_ranges,

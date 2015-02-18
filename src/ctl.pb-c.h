@@ -88,10 +88,12 @@ struct  _UserInfoRep
   uint32_t mtu;
   char *cstp_compr;
   char *dtls_compr;
+  size_t n_no_routes;
+  char **no_routes;
 };
 #define USER_INFO_REP__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&user_info_rep__descriptor) \
-    , 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL }
+    , 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, 0,NULL }
 
 
 struct  _UserListRep

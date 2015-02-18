@@ -259,8 +259,8 @@ ocserv_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_3) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_4) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_5) $(am__append_5) \
-	$(am__DEPENDENCIES_2)
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_5) $(am__append_5) $(am__DEPENDENCIES_2)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -1103,7 +1103,7 @@ ocserv_SOURCES = main.c main-auth.c worker-vpn.c worker-auth.c \
 ocserv_LDADD = ../gl/libgnu.a $(NEEDED_LIBOPTS) libcmd-ocserv.a \
 	$(LIBGNUTLS_LIBS) $(PAM_LIBS) $(LIBUTIL) $(LIBSECCOMP) \
 	$(LIBWRAP) $(LIBCRYPT) $(NEEDED_HTTP_PARSER_LIBS) \
-	$(LIBPROTOBUF_C_LIBS) $(LIBSYSTEMD_DAEMON) $(LIBTALLOC_LIBS) \
+	$(LIBPROTOBUF_C_LIBS) $(LIBSYSTEMD) $(LIBTALLOC_LIBS) \
 	$(FREERADIUS_CLIENT_LIBS) $(LIBLZ4_LIBS) $(am__append_4) \
 	$(am__append_5) $(am__append_10)
 libcmd_ocpasswd_a_SOURCES = ocpasswd-args.def ocpasswd-args.c ocpasswd-args.h
@@ -1728,11 +1728,11 @@ uninstall-am: uninstall-binPROGRAMS uninstall-sbinPROGRAMS
 	uninstall-sbinPROGRAMS
 
 
-ocserv-args.c: $(srcdir)/ocserv-args.def $(srcdir)/version.inc
+ocserv-args.c: $(srcdir)/ocserv-args.def $(builddir)/version.inc
 	$(AUTOGEN) $<
 ocserv-args.h: ocserv-args.c
 
-ocpasswd-args.c: $(srcdir)/ocpasswd-args.def $(srcdir)/version.inc
+ocpasswd-args.c: $(srcdir)/ocpasswd-args.def $(builddir)/version.inc
 	$(AUTOGEN) $<
 ocpasswd-args.h: ocpasswd-args.c
 
