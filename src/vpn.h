@@ -32,6 +32,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <minmax.h>
+#include <auth/common.h>
 
 #ifdef __GNUC__
 # define _OCSERV_GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
@@ -56,11 +57,21 @@ typedef enum {
 	OC_COMP_LZS,
 } comp_type_t;
 
+/* Banning works with a point system. A wrong password
+ * attempt gives you PASSWORD_POINTS, and you are banned
+ * when the maximum ban score is reached.
+ */
+#define DEFAULT_PASSWORD_POINTS 10
+#define DEFAULT_CONNECT_POINTS 1
+#define DEFAULT_KKDCP_POINTS 1
+#define DEFAULT_MAX_BAN_SCORE (MAX_PASSWORD_TRIES*DEFAULT_PASSWORD_POINTS)
+#define DEFAULT_BAN_RESET_TIME 300
+
 #define MIN_NO_COMPRESS_LIMIT 64
 #define DEFAULT_NO_COMPRESS_LIMIT 256
 
 #define DEBUG_BASIC 1
-#define DEBUG_HTTP  2
+#define DEBUG_HTTP  4
 #define DEBUG_TRANSFERRED 5
 #define DEBUG_TLS   9
 
@@ -84,8 +95,14 @@ extern int syslog_open;
 #define AUTH_TYPE_PAM (1<<1 | AUTH_TYPE_USERNAME_PASS)
 #define AUTH_TYPE_PLAIN (1<<2 | AUTH_TYPE_USERNAME_PASS)
 #define AUTH_TYPE_CERTIFICATE (1<<3)
-#define AUTH_TYPE_CERTIFICATE_OPT (1<<4|AUTH_TYPE_CERTIFICATE)
 #define AUTH_TYPE_RADIUS (1<<5 | AUTH_TYPE_USERNAME_PASS)
+#define AUTH_TYPE_GSSAPI (1<<6)
+
+#define ALL_AUTH_TYPES ((AUTH_TYPE_PAM|AUTH_TYPE_PLAIN|AUTH_TYPE_CERTIFICATE|AUTH_TYPE_RADIUS|AUTH_TYPE_GSSAPI) & (~AUTH_TYPE_USERNAME_PASS))
+#define VIRTUAL_AUTH_TYPES (AUTH_TYPE_USERNAME_PASS)
+
+#define ACCT_TYPE_PAM (1<<1)
+#define ACCT_TYPE_RADIUS (1<<2)
 
 #define ERR_SUCCESS 0
 #define ERR_BAD_COMMAND -2
@@ -113,7 +130,6 @@ extern int syslog_open;
 
 
 #define MAX_CIPHERSUITE_NAME 64
-#define MAX_MSG_SIZE 256
 #define SID_SIZE 16
 
 typedef enum {
@@ -127,20 +143,25 @@ typedef enum {
 	CMD_TUN_MTU = 11,
 	CMD_TERMINATE = 12,
 	CMD_SESSION_INFO = 13,
-	CMD_CLI_STATS = 15,
+	CMD_BAN_IP = 16,
+	CMD_BAN_IP_REPLY = 17,
 
+	/* from worker to sec-mod */
 	SM_CMD_AUTH_INIT = 120,
 	SM_CMD_AUTH_CONT,
 	SM_CMD_AUTH_REP,
 	SM_CMD_DECRYPT,
 	SM_CMD_SIGN,
-	SM_CMD_AUTH_SESSION_OPEN,
+	SM_CMD_CLI_STATS,
+
+	/* from main to sec-mod and vice versa */
+	SM_CMD_AUTH_SESSION_OPEN=240,
 	SM_CMD_AUTH_SESSION_CLOSE,
 	SM_CMD_AUTH_SESSION_REPLY,
-	SM_CMD_CLI_STATS,
+	SM_CMD_AUTH_BAN_IP,
+	SM_CMD_AUTH_BAN_IP_REPLY,
+	SM_CMD_AUTH_CLI_STATS,
 } cmd_request_t;
-
-#define MAX_IP_STR 46
 
 struct group_cfg_st {
 	/* routes to be forwarded to the client */
@@ -179,7 +200,6 @@ struct group_cfg_st {
 	unsigned deny_roaming; /* whether the user is allowed to re-use cookies from another IP */
 	unsigned net_priority;
 	unsigned no_udp; /* whether to disable UDP for this user */
-	unsigned require_cert; /* when optional certificate auth is selected require a certificate */
 };
 
 struct vpn_st {
@@ -209,14 +229,45 @@ struct vpn_st {
 	unsigned int nbns_size;
 };
 
+#define MAX_AUTH_METHODS 4
+#define MAX_KRB_REALMS 16
+
+typedef struct auth_struct_st {
+	char *name;
+	char *additional;
+	unsigned type;
+	const struct auth_mod_st *amod;
+	bool enabled;
+} auth_struct_st;
+
+typedef struct acct_struct_st {
+	const char *name;
+	char *additional;
+	const struct acct_mod_st *amod;
+} acct_struct_st;
+
+typedef struct kkdcp_realm_st {
+	char *realm;
+	struct sockaddr_storage addr;
+	socklen_t addr_len;
+	int ai_family;
+	int ai_socktype;
+	int ai_protocol;
+} kkdcp_realm_st;
+
+typedef struct kkdcp_st {
+	char *url;
+	/* the supported realms by this URL */
+	kkdcp_realm_st realms[MAX_KRB_REALMS];
+	unsigned realms_size;
+} kkdcp_st;
+
 struct cfg_st {
-	char *name; /* server name */
-	unsigned int port;
-	unsigned int udp_port;
 	unsigned int is_dyndns;
-	char* unix_conn_file;
-	unsigned int sup_config_type; /* one of SUP_CONFIG_ */
 	unsigned int stats_report_time;
+
+	kkdcp_st *kkdcp;
+	unsigned int kkdcp_size;
 
 	char *pin_file;
 	char *srk_pin_file;
@@ -230,13 +281,13 @@ struct cfg_st {
 	char *dh_params_file;
 	char *cert_user_oid;	/* The OID that will be used to extract the username */
 	char *cert_group_oid;	/* The OID that will be used to extract the groupname */
-	unsigned int auth_types;	/* or'ed sequence of AUTH_TYPE */
-	char *auth_additional;	/* the additional string specified in the auth methode */
+
+
 	gnutls_certificate_request_t cert_req;
 	char *priorities;
 	unsigned enable_compression;
 	unsigned no_compress_limit;	/* under this size (in bytes) of data there will be no compression */
-	char *chroot_dir;	/* where the xml files are served from */
+
 	char *banner;
 	char *ocsp_response; /* file with the OCSP response */
 	char *default_domain; /* domain to be advertised */
@@ -254,7 +305,6 @@ struct cfg_st {
 	char **split_dns;
 	unsigned split_dns_size;;
 
-	char* socket_file_prefix;
 
 	unsigned deny_roaming; /* whether a cookie is restricted to a single IP */
 	time_t cookie_timeout;	/* in seconds */
@@ -263,6 +313,12 @@ struct cfg_st {
 	unsigned rekey_method; /* REKEY_METHOD_ */
 
 	time_t min_reauth_time;	/* after a failed auth, how soon one can reauthenticate -> in seconds */
+	int max_ban_score;	/* the score allowed before a user is banned (see vpn.h) */
+	int ban_reset_time;
+
+	unsigned ban_points_wrong_password;
+	unsigned ban_points_connect;
+	unsigned ban_points_kkdcp;
 
 	unsigned isolate; /* whether seccomp should be enabled or not */
 
@@ -279,7 +335,6 @@ struct cfg_st {
 	unsigned use_utmp;
 	unsigned use_dbus; /* whether the D-BUS service is registered */
 	unsigned use_occtl; /* whether support for the occtl tool will be enabled */
-	char* occtl_socket_file;
 
 	unsigned try_mtu; /* MTU discovery enabled */
 	unsigned cisco_client_compat; /* do not require client certificate, 
@@ -301,7 +356,7 @@ struct cfg_st {
 
 	char *connect_script;
 	char *disconnect_script;
-	
+
 	char *cgroup;
 	char *proxy_url;
 
@@ -311,17 +366,39 @@ struct cfg_st {
 	char *cert_hash;
 #endif
 
-	uid_t uid;
-	gid_t gid;
-
 	/* additional configuration files */
 	char *per_group_dir;
 	char *per_user_dir;
 	char *default_group_conf;
 	char *default_user_conf;
-	
+
+	bool gssapi_no_local_user_map;
+
 	/* the tun network */
 	struct vpn_st network;
+};
+
+struct perm_cfg_st {
+	/* gets reloaded */
+	struct cfg_st *config;
+
+	/* stuff here don't change on reload */
+	auth_struct_st auth[MAX_AUTH_METHODS];
+	unsigned auth_methods;
+	acct_struct_st acct;
+	unsigned int sup_config_type; /* one of SUP_CONFIG_ */
+
+	char *chroot_dir;	/* where the xml files are served from */
+	char* occtl_socket_file;
+	char* socket_file_prefix;
+
+	uid_t uid;
+	gid_t gid;
+
+	char *listen_host;
+	char* unix_conn_file;
+	unsigned int port;
+	unsigned int udp_port;
 };
 
 /* generic thing to stop complaints */
@@ -337,7 +414,7 @@ struct main_server_st;
 #define MAX_GROUPNAME_SIZE MAX_USERNAME_SIZE
 #define MAX_SESSION_DATA_SIZE (4*1024)
 
-#define MAX_CONFIG_ENTRIES 64
+#define MAX_CONFIG_ENTRIES 96
 
 #include <tun.h>
 

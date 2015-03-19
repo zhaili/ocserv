@@ -52,6 +52,7 @@
 #endif
 #include <main.h>
 #include <main-ctl.h>
+#include <main-ban.h>
 #include <route-add.h>
 #include <worker.h>
 #include <cookies.h>
@@ -60,6 +61,13 @@
 #include <grp.h>
 #include <ip-lease.h>
 #include <ccan/list/list.h>
+
+#ifdef HAVE_GSSAPI
+# include <libtasn1.h>
+
+extern const ASN1_ARRAY_TYPE kkdcp_asn1_tab[];
+ASN1_TYPE _kkdcp_pkix1_asn = ASN1_TYPE_EMPTY;
+#endif
 
 int syslog_open = 0;
 static unsigned int terminate = 0;
@@ -87,10 +95,10 @@ static void add_listener(void *pool, struct listen_list_st *list,
 	list->total++;
 }
 
-static void set_udp_socket_options(struct cfg_st* config, int fd, int family)
+static void set_udp_socket_options(struct perm_cfg_st* config, int fd, int family)
 {
 int y;
-	if (config->try_mtu) {
+	if (config->config->try_mtu) {
 #if defined(IP_DONTFRAG)
 		y = 1;
 		if (setsockopt(fd, SOL_IP, IP_DONTFRAG,
@@ -131,7 +139,7 @@ static void set_common_socket_options(int fd)
 }
 
 static 
-int _listen_ports(void *pool, struct cfg_st* config, 
+int _listen_ports(void *pool, struct perm_cfg_st* config, 
 		struct addrinfo *res, struct listen_list_st *list)
 {
 	struct addrinfo *ptr;
@@ -150,7 +158,7 @@ int _listen_ports(void *pool, struct cfg_st* config,
 		else
 			continue;
 
-		if (config->foreground != 0)
+		if (config->config->foreground != 0)
 			fprintf(stderr, "listening (%s) on %s...\n",
 				type, human_addr(ptr->ai_addr, ptr->ai_addrlen,
 					   buf, sizeof(buf)));
@@ -210,7 +218,7 @@ int _listen_ports(void *pool, struct cfg_st* config,
 }
 
 static 
-int _listen_unix_ports(void *pool, struct cfg_st* config, 
+int _listen_unix_ports(void *pool, struct perm_cfg_st* config, 
 		       struct listen_list_st *list)
 {
 	int s, e, ret;
@@ -223,7 +231,7 @@ int _listen_unix_ports(void *pool, struct cfg_st* config,
 		strlcpy(sa.sun_path, config->unix_conn_file, sizeof(sa.sun_path));
 		remove(sa.sun_path);
 
-		if (config->foreground != 0)
+		if (config->config->foreground != 0)
 			fprintf(stderr, "listening (UNIX) on %s...\n",
 				sa.sun_path);
 
@@ -268,7 +276,7 @@ int _listen_unix_ports(void *pool, struct cfg_st* config,
 /* Returns 0 on success or negative value on error.
  */
 static int
-listen_ports(void *pool, struct cfg_st* config, 
+listen_ports(void *pool, struct perm_cfg_st* config, 
 		struct listen_list_st *list)
 {
 	struct addrinfo hints, *res;
@@ -344,7 +352,7 @@ listen_ports(void *pool, struct cfg_st* config,
 			exit(1);
 		}
 
-		if (config->foreground != 0)
+		if (config->config->foreground != 0)
 			fprintf(stderr, "listening on %d systemd sockets...\n", list->total);
 
 		return 0;
@@ -367,7 +375,7 @@ listen_ports(void *pool, struct cfg_st* config,
 #endif
 		    ;
 
-		ret = getaddrinfo(config->name, portname, &hints, &res);
+		ret = getaddrinfo(config->listen_host, portname, &hints, &res);
 		if (ret != 0) {
 			fprintf(stderr, "getaddrinfo() failed: %s\n",
 				gai_strerror(ret));
@@ -403,7 +411,7 @@ listen_ports(void *pool, struct cfg_st* config,
 #endif
 		    ;
 
-		ret = getaddrinfo(config->name, portname, &hints, &res);
+		ret = getaddrinfo(config->listen_host, portname, &hints, &res);
 		if (ret != 0) {
 			fprintf(stderr, "getaddrinfo() failed: %s\n",
 				gai_strerror(ret));
@@ -512,46 +520,46 @@ static void drop_privileges(main_server_st* s)
 	int ret, e;
 	struct rlimit rl;
 
-	if (s->config->chroot_dir) {
-		ret = chdir(s->config->chroot_dir);
+	if (s->perm_config->chroot_dir) {
+		ret = chdir(s->perm_config->chroot_dir);
 		if (ret != 0) {
 			e = errno;
-			mslog(s, NULL, LOG_ERR, "cannot chdir to %s: %s", s->config->chroot_dir, strerror(e));
+			mslog(s, NULL, LOG_ERR, "cannot chdir to %s: %s", s->perm_config->chroot_dir, strerror(e));
 			exit(1);
 		}
 
-		ret = chroot(s->config->chroot_dir);
+		ret = chroot(s->perm_config->chroot_dir);
 		if (ret != 0) {
 			e = errno;
-			mslog(s, NULL, LOG_ERR, "cannot chroot to %s: %s", s->config->chroot_dir, strerror(e));
+			mslog(s, NULL, LOG_ERR, "cannot chroot to %s: %s", s->perm_config->chroot_dir, strerror(e));
 			exit(1);
 		}
 	}
 
-	if (s->config->gid != -1 && (getgid() == 0 || getegid() == 0)) {
-		ret = setgid(s->config->gid);
+	if (s->perm_config->gid != -1 && (getgid() == 0 || getegid() == 0)) {
+		ret = setgid(s->perm_config->gid);
 		if (ret < 0) {
 			e = errno;
 			mslog(s, NULL, LOG_ERR, "cannot set gid to %d: %s\n",
-			       (int) s->config->gid, strerror(e));
+			       (int) s->perm_config->gid, strerror(e));
 			exit(1);
 		}
 
-		ret = setgroups(1, &s->config->gid);
+		ret = setgroups(1, &s->perm_config->gid);
 		if (ret < 0) {
 			e = errno;
 			mslog(s, NULL, LOG_ERR, "cannot set groups to %d: %s\n",
-			       (int) s->config->gid, strerror(e));
+			       (int) s->perm_config->gid, strerror(e));
 			exit(1);
 		}
 	}
 
-	if (s->config->uid != -1 && (getuid() == 0 || geteuid() == 0)) {
-		ret = setuid(s->config->uid);
+	if (s->perm_config->uid != -1 && (getuid() == 0 || geteuid() == 0)) {
+		ret = setuid(s->perm_config->uid);
 		if (ret < 0) {
 			e = errno;
 			mslog(s, NULL, LOG_ERR, "cannot set uid to %d: %s\n",
-			       (int) s->config->uid, strerror(e));
+			       (int) s->perm_config->uid, strerror(e));
 			exit(1);
 
 		}
@@ -626,6 +634,7 @@ void clear_lists(main_server_st *s)
 	ip_lease_deinit(&s->ip_leases);
 	proc_table_deinit(s);
 	ctl_handler_deinit(s);
+	main_ban_db_deinit(s);
 }
 
 static void kill_children(main_server_st* s)
@@ -682,7 +691,7 @@ int sfd = -1;
 	ret = oc_recvfrom_at(listener->fd, buffer, sizeof(buffer), 0,
 			  (struct sockaddr*)&cli_addr, &cli_addr_size,
 			  (struct sockaddr*)&our_addr, &our_addr_size,
-			  s->config->udp_port);
+			  s->perm_config->udp_port);
 	if (ret < 0) {
 		mslog(s, NULL, LOG_INFO, "error receiving in UDP socket");
 		return -1;
@@ -724,7 +733,7 @@ int sfd = -1;
 		match_ip_only = 1;
 
 		/* don't bother IP matching when the listen-clear-file is in use */
-		if (s->config->unix_conn_file)
+		if (s->perm_config->unix_conn_file)
 			goto fail;
 	} else {
 		/* read session_id */
@@ -818,7 +827,7 @@ unsigned total = 10;
 
 	if (reload_conf != 0) {
 		mslog(s, NULL, LOG_INFO, "reloading configuration");
-		reload_cfg_file(s->main_pool, s->config);
+		reload_cfg_file(s->main_pool, s->perm_config);
 		tls_reload_crl(s, s->creds);
 		reload_conf = 0;
 		kill(s->sec_mod_pid, SIGHUP);
@@ -832,7 +841,7 @@ unsigned total = 10;
 		mslog(s, NULL, LOG_INFO, "termination request received; waiting for children to die");
 		kill_children(s);
 		remove(s->full_socket_file);
-		remove(s->config->occtl_socket_file);
+		remove(s->perm_config->occtl_socket_file);
 		remove_pid_file();
 
 		while (waitpid(-1, NULL, WNOHANG) >= 0) {
@@ -849,18 +858,19 @@ unsigned total = 10;
 		 */
 		clear_lists(s);
 		tls_global_deinit(s->creds);
-		clear_cfg_file(s->config);
-		talloc_free(s->config);
+		clear_cfg(s->perm_config);
+		talloc_free(s->perm_config);
 		talloc_free(s->main_pool);
 		closelog();
 		exit(0);
 	}
 
-	/* Check if we need to expire any cookies */
+	/* Check if we need to expire any data */
 	if (need_maintenance != 0) {
 		need_maintenance = 0;
-		mslog(s, NULL, LOG_DEBUG, "performing maintenance");
+		mslog(s, NULL, LOG_DEBUG, "performing maintenance (banned IPs: %d)", main_ban_db_elems(s));
 		expire_tls_sessions(s);
+		cleanup_banned_entries(s);
 		alarm(MAINTAINANCE_TIME(s));
 	}
 }
@@ -882,8 +892,6 @@ static int check_tcp_wrapper(int fd)
 #else
 # define check_tcp_wrapper(x) 0
 #endif
-
-typedef pid_t (*fork_func)(void);
 
 int main(int argc, char** argv)
 {
@@ -907,7 +915,6 @@ int main(int argc, char** argv)
 	sigset_t emptyset, blockset;
 	/* tls credentials */
 	struct tls_st creds;
-	fork_func our_fork = fork;
 
 #ifdef DEBUG_LEAKS
 	talloc_enable_leak_report_full();
@@ -936,6 +943,7 @@ int main(int argc, char** argv)
 	tls_cache_init(s, &s->tls_db);
 	ip_lease_init(&s->ip_leases);
 	proc_table_init(s);
+	main_ban_db_init(s);
 
 	sigemptyset(&blockset);
 	sigemptyset(&emptyset);
@@ -964,11 +972,12 @@ int main(int argc, char** argv)
 	}
 
 	/* load configuration */
-	ret = cmd_parser(main_pool, argc, argv, &s->config);
+	ret = cmd_parser(main_pool, argc, argv, &s->perm_config);
 	if (ret < 0) {
 		fprintf(stderr, "Error in arguments\n");
 		exit(1);
 	}
+	s->config = s->perm_config->config;
 
 	setproctitle(PACKAGE_NAME"-main");
 
@@ -978,7 +987,7 @@ int main(int argc, char** argv)
 	}
 
 	/* Listen to network ports */
-	ret = listen_ports(s, s->config, &s->listen_list);
+	ret = listen_ports(s, s->perm_config, &s->listen_list);
 	if (ret < 0) {
 		fprintf(stderr, "Cannot listen to specified ports\n");
 		exit(1);
@@ -1004,13 +1013,9 @@ int main(int argc, char** argv)
 		}
 	}
 
-	/* override the default fork function */
-	if (s->config->isolate)
-		our_fork = safe_fork;
-
 	write_pid_file();
 
-	run_sec_mod(s);
+	s->sec_mod_fd = run_sec_mod(s);
 
 	ret = ctl_handler_init(s);
 	if (ret < 0) {
@@ -1022,10 +1027,10 @@ int main(int argc, char** argv)
 
 	/* chdir to our chroot directory, to allow opening the sec-mod
 	 * socket if necessary. */
-	if (s->config->chroot_dir) {
-		if (chdir(s->config->chroot_dir) != 0) {
+	if (s->perm_config->chroot_dir) {
+		if (chdir(s->perm_config->chroot_dir) != 0) {
 			e = errno;
-			mslog(s, NULL, LOG_ERR, "cannot chdir to %s: %s", s->config->chroot_dir, strerror(e));
+			mslog(s, NULL, LOG_ERR, "cannot chdir to %s: %s", s->perm_config->chroot_dir, strerror(e));
 			exit(1);
 		}
 	}
@@ -1036,7 +1041,7 @@ int main(int argc, char** argv)
 
 	s->secmod_addr.sun_family = AF_UNIX;
 	p = s->socket_file;
-	if (s->config->chroot_dir) /* if we are on chroot make the socket file path relative */
+	if (s->perm_config->chroot_dir) /* if we are on chroot make the socket file path relative */
 		while (*p == '/') p++;
 	strlcpy(s->secmod_addr.sun_path, p, sizeof(s->secmod_addr.sun_path));
 	s->secmod_addr_len = SUN_LEN(&s->secmod_addr);
@@ -1054,6 +1059,21 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
+#ifdef HAVE_GSSAPI
+	/* Initialize kkdcp structures */
+	if (s->config->kkdcp) {
+		ret = asn1_array2tree(kkdcp_asn1_tab, &_kkdcp_pkix1_asn, NULL);
+		if (ret != ASN1_SUCCESS) {
+			fprintf(stderr, "KKDCP ASN.1 initialization error\n");
+			exit(1);
+		}
+	}
+#endif
+
+	/* we don't need them */
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+
 	sigprocmask(SIG_BLOCK, &blockset, &sig_default_set);
 	alarm(MAINTAINANCE_TIME(s));
 
@@ -1061,6 +1081,7 @@ int main(int argc, char** argv)
 		check_other_work(s);
 
 		/* initialize select */
+		n = 0;
 		FD_ZERO(&rd_set);
 		FD_ZERO(&wr_set);
 
@@ -1078,13 +1099,16 @@ int main(int argc, char** argv)
 			}
 		}
 
+		FD_SET(s->sec_mod_fd, &rd_set);
+		n = MAX(n, s->sec_mod_fd);
+
 		ret = ctl_handler_set_fds(s, &rd_set, &wr_set);
 		n = MAX(n, ret);
 
 #ifdef HAVE_PSELECT
 		ts.tv_nsec = 0;
 		ts.tv_sec = 30;
-		ret = pselect(n + 1, &rd_set, &wr_set, NULL, &ts, &emptyset);
+		ret = pselect(n + 1, &rd_set, NULL/*&wr_set*/, NULL, &ts, &emptyset);
 #else
 		ts.tv_usec = 0;
 		ts.tv_sec = 30;
@@ -1092,6 +1116,7 @@ int main(int argc, char** argv)
 		ret = select(n + 1, &rd_set, &wr_set, NULL, &ts);
 		sigprocmask(SIG_BLOCK, &blockset, NULL);
 #endif
+
 		if (ret == -1 && errno == EINTR)
 			continue;
 
@@ -1099,7 +1124,8 @@ int main(int argc, char** argv)
 			e = errno;
 			mslog(s, NULL, LOG_ERR, "Error in pselect(): %s",
 			       strerror(e));
-			exit(1);
+			terminate = 1;
+			continue;
 		}
 
 		/* Check for new connections to accept */
@@ -1113,7 +1139,7 @@ int main(int argc, char** argv)
 				fd = accept(ltmp->fd, (void*)&ws->remote_addr, &ws->remote_addr_len);
 				if (fd < 0) {
 					mslog(s, NULL, LOG_ERR,
-					       "Error in accept(): %s", strerror(errno));
+					       "error in accept(): %s", strerror(errno));
 					continue;
 				}
 				set_cloexec_flag (fd, 1);
@@ -1124,7 +1150,7 @@ int main(int argc, char** argv)
 
 				if (s->config->max_clients > 0 && s->active_clients >= s->config->max_clients) {
 					close(fd);
-					mslog(s, NULL, LOG_INFO, "Reached maximum client limit (active: %u)", s->active_clients);
+					mslog(s, NULL, LOG_INFO, "reached maximum client limit (active: %u)", s->active_clients);
 					break;
 				}
 
@@ -1134,15 +1160,20 @@ int main(int argc, char** argv)
 					break;
 				}
 
-				/* Create a command socket */
-				ret = socketpair(AF_UNIX, SOCK_STREAM, 0, cmd_fd);
-				if (ret < 0) {
-					mslog(s, NULL, LOG_ERR, "Error creating command socket");
+				if (check_if_banned(s, &ws->remote_addr, ws->remote_addr_len) != 0) {
 					close(fd);
 					break;
 				}
 
-				pid = our_fork();
+				/* Create a command socket */
+				ret = socketpair(AF_UNIX, SOCK_STREAM, 0, cmd_fd);
+				if (ret < 0) {
+					mslog(s, NULL, LOG_ERR, "error creating command socket");
+					close(fd);
+					break;
+				}
+
+				pid = fork();
 				if (pid == 0) {	/* child */
 					/* close any open descriptors, and erase
 					 * sensitive data before running the worker
@@ -1163,6 +1194,7 @@ int main(int argc, char** argv)
 
 					ws->main_pool = main_pool;
 					ws->config = s->config;
+					ws->perm_config = s->perm_config;
 					ws->cmd_fd = cmd_fd[1];
 					ws->tun_fd = -1;
 					ws->dtls_tptr.fd = -1;
@@ -1222,6 +1254,16 @@ fork_failed:
 				if (ret < 0) {
 					remove_proc(s, ctmp, (ret!=ERR_WORKER_TERMINATED)?1:0);
 				}
+			}
+		}
+
+		if (FD_ISSET(s->sec_mod_fd, &rd_set)) {
+			ret = handle_sec_mod_commands(s);
+			if (ret < 0) { /* bad commands from sec-mod are unacceptable */
+				mslog(s, NULL, LOG_ERR,
+				       "error command from sec-mod");
+				terminate = 1;
+				continue;
 			}
 		}
 

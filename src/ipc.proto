@@ -1,25 +1,26 @@
 /* === Authentication ===
  
-  main                 sec-mod            worker
-   |                      |                  |
-   |                      |  <--AUTH_INIT--- |
-   |                      |  ---AUTH_REP---> |
-   |                      |  <--AUTH_CONT--- |
-   |                      |         .        |
-   |                      |         .        |
-   |                      |         .        |
-   |                      |  ----AUTH_REP--> |
-   |                      |                  |
-   | <----------AUTH_COOKIE_REQ------------- |
-   |                      |                  |
-   | ---SESSION_OPEN----> |                  |
-   | <--SESSION_REPLY---- |                  |
-   |                      |                  |
-   | -----------------AUTH_REP-------------> |
-   |                      |                  |
+  main                 sec-mod                 worker
+   |                      |                      |
+   |                      |  <--SEC_AUTH_INIT--- |
+   |                      |  ---SEC_AUTH_REP---> |
+   |                      |  <--SEC_AUTH_CONT--- |
+   |                      |         .            |
+   |                      |         .            |
+   |                      |         .            |
+   |                      |  ----SEC_AUTH_REP--> |
+   |                      |                      |
+   | <----------AUTH_COOKIE_REQ----------------- |
+   |                      |                      |
+   | ---SESSION_OPEN----> |                      |
+   | <--SESSION_REPLY---- |                      |
+   |                      |                      |
+   | -----------------AUTH_REP-----------------> |
+   |                      |                      |
    |                      |
    |                      |            (disconnect)
    | ---SESSION_CLOSE---> |
+   | <-- CLI_STATS ------ |
 
  */
 
@@ -113,8 +114,11 @@ message cli_stats_msg
 {
 	required uint64 bytes_in = 1;
 	required uint64 bytes_out = 2;
-	optional bytes sid = 3; /* only required by sec-mod */
-	required uint32 uptime = 4; /* sec-mod */
+	optional bytes sid = 3;
+	required uint32 uptime = 4;
+	optional string remote_ip = 5;
+	optional string ipv4 = 6;
+	optional string ipv6 = 7;
 }
 
 /* UDP_FD */
@@ -134,6 +138,18 @@ message session_info_msg
 	optional string dtls_compr = 5;
 }
 
+/* WORKER_BAN_IP: sent from worker to main */
+message ban_ip_msg
+{
+	required string ip = 1;
+	required uint32 score = 2;
+}
+
+message ban_ip_reply_msg
+{
+	/* whether to disconnect the user */
+	required AUTH_REP reply = 1;
+}
 
 /* Messages to and from the security module */
 
@@ -166,6 +182,7 @@ message sec_auth_init_msg
 	repeated string cert_group_names = 6;
 	optional string hostname = 7;
 	required string ip = 8;
+	required uint32 auth_type = 9 [default = 0];
 }
 
 /* SEC_AUTH_CONT */
@@ -234,7 +251,6 @@ message sec_auth_session_reply_msg
 	/* sup - config */
 	optional bool no_udp = 10;
 	optional bool deny_roaming = 11;
-	optional bool require_cert = 12;
 	repeated string routes = 13;
 	repeated string iroutes = 14;
 	repeated string dns = 15;
@@ -252,3 +268,6 @@ message sec_auth_session_reply_msg
 	optional string explicit_ipv6 = 27;
 	repeated string no_routes = 28;
 }
+
+/* SEC_BAN_IP: sent from sec-mod to main */
+/* same as: ban_ip_msg */

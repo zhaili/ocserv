@@ -29,6 +29,7 @@
 #include <vpn.h>
 #include <c-ctype.h>
 #include "plain.h"
+#include "cfg.h"
 #include "auth/common.h"
 #include <ccan/htable/htable.h>
 #include <ccan/hash/hash.h>
@@ -42,10 +43,29 @@ struct plain_ctx_st {
 	char *groupnames[MAX_GROUPS];
 	unsigned groupnames_size;
 
-	const char *passwd;	/* password file */
 	const char *pass_msg;
 	unsigned retries;
 };
+
+static char *password_file = NULL;
+
+static void plain_global_init(void *pool, void *additional)
+{
+	struct plain_cfg_st *config = additional;
+
+	if (config == NULL) {
+		fprintf(stderr, "plain: no configuration passed!\n");
+		exit(1);
+	}
+
+	password_file = talloc_strdup(pool, config->passwd);
+	if (password_file == NULL) {
+		fprintf(stderr, "plain: memory error\n");
+		exit(1);
+	}
+
+	return;
+}
 
 /* Breaks a list of "xxx", "yyy", to a character array, of
  * MAX_COMMA_SEP_ELEMENTS size; Note that the given string is modified.
@@ -112,11 +132,11 @@ static int read_auth_pass(struct plain_ctx_st *pctx)
 	char *p, *sp;
 	int ret;
 
-	fp = fopen(pctx->passwd, "r");
+	fp = fopen(password_file, "r");
 	if (fp == NULL) {
 		syslog(LOG_AUTH,
 		       "error in plain authentication; cannot open: %s",
-		       pctx->passwd);
+		       password_file);
 		return -1;
 	}
 
@@ -161,18 +181,22 @@ static int read_auth_pass(struct plain_ctx_st *pctx)
 	return ret;
 }
 
-static int plain_auth_init(void **ctx, void *pool, const char *username, const char *ip,
-			   void *additional)
+static int plain_auth_init(void **ctx, void *pool, const char *username, const char *ip)
 {
 	struct plain_ctx_st *pctx;
 	int ret;
+
+	if (username == NULL || username[0] == 0) {
+		syslog(LOG_AUTH,
+		       "plain-auth: no username present");
+		return ERR_AUTH_FAIL;
+	}
 
 	pctx = talloc_zero(pool, struct plain_ctx_st);
 	if (pctx == NULL)
 		return ERR_AUTH_FAIL;
 
 	strlcpy(pctx->username, username, sizeof(pctx->username));
-	pctx->passwd = additional;
 	pctx->pass_msg = pass_msg_first;
 
 	ret = read_auth_pass(pctx);
@@ -183,7 +207,7 @@ static int plain_auth_init(void **ctx, void *pool, const char *username, const c
 
 	*ctx = pctx;
 
-	return 0;
+	return ERR_AUTH_CONTINUE;
 }
 
 static int plain_auth_group(void *ctx, const char *suggested, char *groupname, int groupname_size)
@@ -232,7 +256,7 @@ static int plain_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 	    && strcmp(crypt(pass, pctx->cpass), pctx->cpass) == 0)
 		return 0;
 	else {
-		if (pctx->retries++ < MAX_TRIES-1) {
+		if (pctx->retries++ < MAX_PASSWORD_TRIES-1) {
 			pctx->pass_msg = pass_msg_failed;
 			return ERR_AUTH_CONTINUE;
 		} else {
@@ -244,11 +268,11 @@ static int plain_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 	}
 }
 
-static int plain_auth_msg(void *ctx, char *msg, size_t msg_size)
+static int plain_auth_msg(void *ctx, void *pool, char **msg)
 {
 	struct plain_ctx_st *pctx = ctx;
 
-	strlcpy(msg, pctx->pass_msg, msg_size);
+	*msg = talloc_strdup(pool, pctx->pass_msg);
 	return 0;
 }
 
@@ -284,15 +308,16 @@ static void plain_group_list(void *pool, void *additional, char ***groupname, un
 	char *tgroup[MAX_GROUPS];
 	unsigned tgroup_size;
 	struct htable hash;
+	struct plain_cfg_st *config = additional;
 
 	htable_init(&hash, rehash, NULL);
 
 	pool = talloc_init("plain");
-	fp = fopen(additional, "r");
+	fp = fopen(config->passwd, "r");
 	if (fp == NULL) {
 		syslog(LOG_AUTH,
 		       "error in plain authentication; cannot open: %s",
-		       (char*)additional);
+		       (char*)config->passwd);
 		return;
 	}
 
@@ -354,6 +379,8 @@ static void plain_group_list(void *pool, void *additional, char ***groupname, un
 
 const struct auth_mod_st plain_auth_funcs = {
 	.type = AUTH_TYPE_PLAIN | AUTH_TYPE_USERNAME_PASS,
+	.allows_retries = 1,
+	.global_init = plain_global_init,
 	.auth_init = plain_auth_init,
 	.auth_deinit = plain_auth_deinit,
 	.auth_msg = plain_auth_msg,

@@ -79,7 +79,7 @@ static int parse_cstp_data(struct worker_st *ws, uint8_t * buf, size_t buf_size,
 			   time_t);
 static int parse_dtls_data(struct worker_st *ws, uint8_t * buf, size_t buf_size,
 			   time_t);
-static void exit_worker(worker_st * ws);
+void exit_worker(worker_st * ws);
 static int connect_handler(worker_st * ws);
 
 static void handle_alarm(int signo)
@@ -240,26 +240,110 @@ static int setup_dtls_connection(struct worker_st *ws)
 	return -1;
 }
 
-static
+void ws_add_score_to_ip(worker_st *ws, unsigned points, unsigned final)
+{
+	int ret, e;
+	BanIpMsg msg = BAN_IP_MSG__INIT;
+	BanIpReplyMsg *reply = NULL;
+	PROTOBUF_ALLOCATOR(pa, ws);
+
+	/* no reporting if banning is disabled */
+	if (ws->config->max_ban_score == 0)
+		return;
+
+	/* In final call, no score added, we simply send */
+	if (final == 0) {
+		ws->ban_points += points;
+		/* do not use IPC for small values */
+		if (points < ws->config->ban_points_wrong_password)
+			return;
+	}
+
+	msg.ip = ws->remote_ip_str;
+	msg.score = points;
+
+	ret = send_msg(ws, ws->cmd_fd, CMD_BAN_IP, &msg,
+				(pack_size_func) ban_ip_msg__get_packed_size,
+				(pack_func) ban_ip_msg__pack);
+	if (ret < 0) {
+		e = errno;
+		oclog(ws, LOG_WARNING, "error in sending BAN IP message: %s", strerror(e));
+		return;
+	}
+
+	if (final != 0)
+		return;
+
+	ret = recv_msg(ws, ws->cmd_fd, CMD_BAN_IP_REPLY,
+		       (void *)&reply, (unpack_func) ban_ip_reply_msg__unpack);
+	if (ret < 0) {
+		oclog(ws, LOG_ERR, "error receiving BAN IP reply message");
+		return;
+	}
+
+	if (reply->reply != AUTH__REP__OK) {
+		/* we have exceeded the maximum score */
+		exit(1);
+	}
+
+	ban_ip_reply_msg__free_unpacked(reply, &pa);
+
+	return;
+}
+
+void send_stats_to_secmod(worker_st * ws, time_t now)
+{
+	CliStatsMsg msg = CLI_STATS_MSG__INIT;
+	int sd, ret, e;
+
+	ws->last_stats_msg = now;
+
+	sd = connect_to_secmod(ws);
+	if (sd >= 0) {
+		char buf[64];
+		msg.bytes_in = ws->tun_bytes_in;
+		msg.bytes_out = ws->tun_bytes_out;
+		msg.uptime = now - ws->session_start_time;
+		msg.sid.len = sizeof(ws->sid);
+		msg.sid.data = ws->sid;
+		msg.has_sid = 1;
+
+		msg.remote_ip = human_addr2((void *)&ws->remote_addr, ws->remote_addr_len,
+		       		     buf, sizeof(buf), 0);
+
+		msg.ipv4 = ws->vinfo.ipv4;
+		msg.ipv6 = ws->vinfo.ipv6;
+
+		ret = send_msg_to_secmod(ws, sd, SM_CMD_CLI_STATS, &msg,
+				 (pack_size_func)cli_stats_msg__get_packed_size,
+				 (pack_func) cli_stats_msg__pack);
+		close(sd);
+
+		if (ret >= 0) {
+			oclog(ws, LOG_DEBUG,
+			      "sent periodic stats (in: %lu, out: %lu) to sec-mod",
+			      (unsigned long)msg.bytes_in,
+			      (unsigned long)msg.bytes_out);
+		} else {
+			e = errno;
+			oclog(ws, LOG_WARNING, "could not send periodic stats to sec-mod: %s\n", strerror(e));	      
+		}
+	}
+}
+
+/* Terminates the worker process, but communicates any required
+ * data to main process before (stats/ban points).
+ */
 void exit_worker(worker_st * ws)
 {
 	/* send statistics to parent */
 	if (ws->auth_state == S_AUTH_COMPLETE) {
-		CliStatsMsg msg = CLI_STATS_MSG__INIT;
-
-		msg.bytes_in = ws->tun_bytes_in;
-		msg.bytes_out = ws->tun_bytes_out;
-
-		send_msg_to_main(ws, CMD_CLI_STATS, &msg,
-				 (pack_size_func)
-				 cli_stats_msg__get_packed_size,
-				 (pack_func) cli_stats_msg__pack);
-
-		oclog(ws, LOG_DEBUG,
-		      "sending stats (in: %lu, out: %lu) to main",
-		      (unsigned long)msg.bytes_in,
-		      (unsigned long)msg.bytes_out);
+		send_stats_to_secmod(ws, time(0));
 	}
+
+	if (ws->ban_points > 0)
+		ws_add_score_to_ip(ws, 0, 1);
+
 	talloc_free(ws->main_pool);
 	closelog();
 	exit(1);
@@ -355,6 +439,10 @@ void vpn_server(struct worker_st *ws)
 
 	memset(&settings, 0, sizeof(settings));
 
+	ws->selected_auth = &ws->perm_config->auth[0];
+	if (ws->cert_auth_ok)
+		ws_switch_auth_to(ws, AUTH_TYPE_CERTIFICATE);
+
 	settings.on_url = http_url_cb;
 	settings.on_header_field = http_header_field_cb;
 	settings.on_header_value = http_header_value_cb;
@@ -362,6 +450,8 @@ void vpn_server(struct worker_st *ws)
 	settings.on_message_complete = http_message_complete_cb;
 	settings.on_body = http_body_cb;
 	http_req_init(ws);
+
+	human_addr2((void*)&ws->remote_addr, ws->remote_addr_len, ws->remote_ip_str, sizeof(ws->remote_ip_str), 0);
 
 	ws->session = session;
 	ws->parser = &parser;
@@ -421,12 +511,12 @@ void vpn_server(struct worker_st *ws)
 						nrecvd);
 			if (nparsed == 0) {
 				oclog(ws, LOG_HTTP_DEBUG,
-				      "error parsing HTTP request");
+				      "error parsing HTTP POST request");
 				exit_worker(ws);
 			}
 		}
 
-		fn = http_post_url_handler(ws->req.url);
+		fn = http_post_url_handler(ws, ws->req.url);
 		if (fn == NULL) {
 			oclog(ws, LOG_HTTP_DEBUG, "unexpected POST URL %s",
 			      ws->req.url);
@@ -599,30 +689,7 @@ int periodic_check(worker_st * ws, unsigned mtu_overhead, time_t now,
 	if (ws->config->stats_report_time > 0 &&
 	    now - ws->last_stats_msg >= ws->config->stats_report_time &&
 	    ws->sid_set) {
-		CliStatsMsg msg = CLI_STATS_MSG__INIT;
-		int sd;
-
-		ws->last_stats_msg = now;
-
-		sd = connect_to_secmod(ws);
-		if (sd >= 0) {
-			msg.bytes_in = ws->tun_bytes_in;
-			msg.bytes_out = ws->tun_bytes_out;
-			msg.uptime = now - ws->session_start_time;
-			msg.sid.len = sizeof(ws->sid);
-			msg.sid.data = ws->sid;
-			msg.has_sid = 1;
-
-			send_msg_to_secmod(ws, sd, SM_CMD_CLI_STATS, &msg,
-					 (pack_size_func)cli_stats_msg__get_packed_size,
-					 (pack_func) cli_stats_msg__pack);
-			close(sd);
-
-			oclog(ws, LOG_DEBUG,
-			      "sending periodic stats (in: %lu, out: %lu) to sec-mod",
-			      (unsigned long)msg.bytes_in,
-			      (unsigned long)msg.bytes_out);
-		}
+		send_stats_to_secmod(ws, now);
 	}
 
 	/* check DPD. Otherwise exit */
@@ -1258,7 +1325,7 @@ static int connect_handler(worker_st * ws)
 	}
 
 	ws->udp_state = UP_DISABLED;
-	if (ws->config->udp_port != 0 && req->master_secret_set != 0) {
+	if (ws->perm_config->udp_port != 0 && req->master_secret_set != 0 && ws->req.selected_ciphersuite != NULL) {
 		memcpy(ws->master_secret, req->master_secret, TLS_MASTER_SIZE);
 		ws->udp_state = UP_WAIT_FD;
 	} else {
@@ -1549,7 +1616,7 @@ static int connect_handler(worker_st * ws)
 
 		ret =
 		    cstp_printf(ws, "X-DTLS-Port: %u\r\n",
-			       ws->config->udp_port);
+			       ws->perm_config->udp_port);
 		SEND_ERR(ret);
 
 		if (ws->config->rekey_time > 0) {

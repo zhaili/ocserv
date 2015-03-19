@@ -21,6 +21,9 @@ typedef struct _UserInfoRep UserInfoRep;
 typedef struct _UserListRep UserListRep;
 typedef struct _UsernameReq UsernameReq;
 typedef struct _IdReq IdReq;
+typedef struct _BanInfoRep BanInfoRep;
+typedef struct _BanListRep BanListRep;
+typedef struct _UnbanReq UnbanReq;
 
 
 /* --- enums --- */
@@ -36,8 +39,8 @@ struct  _StatusRep
   uint32_t sec_mod_pid;
   uint32_t active_clients;
   uint32_t start_time;
-  uint32_t stored_cookies;
   uint32_t stored_tls_sessions;
+  uint32_t banned_ips;
 };
 #define STATUS_REP__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&status_rep__descriptor) \
@@ -125,6 +128,40 @@ struct  _IdReq
 #define ID_REQ__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&id_req__descriptor) \
     , 0 }
+
+
+struct  _BanInfoRep
+{
+  ProtobufCMessage base;
+  char *ip;
+  uint32_t score;
+  protobuf_c_boolean has_expires;
+  uint32_t expires;
+};
+#define BAN_INFO_REP__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&ban_info_rep__descriptor) \
+    , NULL, 0, 0,0 }
+
+
+struct  _BanListRep
+{
+  ProtobufCMessage base;
+  size_t n_info;
+  BanInfoRep **info;
+};
+#define BAN_LIST_REP__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&ban_list_rep__descriptor) \
+    , 0,NULL }
+
+
+struct  _UnbanReq
+{
+  ProtobufCMessage base;
+  char *ip;
+};
+#define UNBAN_REQ__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&unban_req__descriptor) \
+    , NULL }
 
 
 /* StatusRep methods */
@@ -241,6 +278,63 @@ IdReq *
 void   id_req__free_unpacked
                      (IdReq *message,
                       ProtobufCAllocator *allocator);
+/* BanInfoRep methods */
+void   ban_info_rep__init
+                     (BanInfoRep         *message);
+size_t ban_info_rep__get_packed_size
+                     (const BanInfoRep   *message);
+size_t ban_info_rep__pack
+                     (const BanInfoRep   *message,
+                      uint8_t             *out);
+size_t ban_info_rep__pack_to_buffer
+                     (const BanInfoRep   *message,
+                      ProtobufCBuffer     *buffer);
+BanInfoRep *
+       ban_info_rep__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   ban_info_rep__free_unpacked
+                     (BanInfoRep *message,
+                      ProtobufCAllocator *allocator);
+/* BanListRep methods */
+void   ban_list_rep__init
+                     (BanListRep         *message);
+size_t ban_list_rep__get_packed_size
+                     (const BanListRep   *message);
+size_t ban_list_rep__pack
+                     (const BanListRep   *message,
+                      uint8_t             *out);
+size_t ban_list_rep__pack_to_buffer
+                     (const BanListRep   *message,
+                      ProtobufCBuffer     *buffer);
+BanListRep *
+       ban_list_rep__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   ban_list_rep__free_unpacked
+                     (BanListRep *message,
+                      ProtobufCAllocator *allocator);
+/* UnbanReq methods */
+void   unban_req__init
+                     (UnbanReq         *message);
+size_t unban_req__get_packed_size
+                     (const UnbanReq   *message);
+size_t unban_req__pack
+                     (const UnbanReq   *message,
+                      uint8_t             *out);
+size_t unban_req__pack_to_buffer
+                     (const UnbanReq   *message,
+                      ProtobufCBuffer     *buffer);
+UnbanReq *
+       unban_req__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   unban_req__free_unpacked
+                     (UnbanReq *message,
+                      ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
 typedef void (*StatusRep_Closure)
@@ -261,6 +355,15 @@ typedef void (*UsernameReq_Closure)
 typedef void (*IdReq_Closure)
                  (const IdReq *message,
                   void *closure_data);
+typedef void (*BanInfoRep_Closure)
+                 (const BanInfoRep *message,
+                  void *closure_data);
+typedef void (*BanListRep_Closure)
+                 (const BanListRep *message,
+                  void *closure_data);
+typedef void (*UnbanReq_Closure)
+                 (const UnbanReq *message,
+                  void *closure_data);
 
 /* --- services --- */
 
@@ -273,6 +376,9 @@ extern const ProtobufCMessageDescriptor user_info_rep__descriptor;
 extern const ProtobufCMessageDescriptor user_list_rep__descriptor;
 extern const ProtobufCMessageDescriptor username_req__descriptor;
 extern const ProtobufCMessageDescriptor id_req__descriptor;
+extern const ProtobufCMessageDescriptor ban_info_rep__descriptor;
+extern const ProtobufCMessageDescriptor ban_list_rep__descriptor;
+extern const ProtobufCMessageDescriptor unban_req__descriptor;
 
 PROTOBUF_C__END_DECLS
 

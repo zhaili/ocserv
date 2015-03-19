@@ -1,3 +1,1041 @@
+2015-03-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.10.1
+
+2015-03-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c: ensure that sendmsg and recvmsg don't get
+	interrupted
+
+2015-03-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod.c: sec-mod: handle unknown messages as bad commands
+
+2015-03-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-03-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: bumped version
+
+2015-03-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-auth.c: call session_close only when session_open has
+	succeeded
+
+2015-03-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-cookie-timeout: tests: enhance test-cookie-timeout to
+	detect issues with main-sec-mod not in sync
+
+2015-03-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-03-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: tolerate session close in unusual cases, and
+	avoid desync
+
+2015-03-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod.c: sec-mod: only exit on
+	ERR_BAD_COMMAND errors from main msg handler
+
+2015-03-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/ocserv-radius.conf, tests/radius-test: 
+	radius-test: include radius accounting test
+
+2015-03-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: config: simplified comparison
+
+2015-03-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/icmp-ping.c: icmp-ping: explicitly specify type
+
+2015-03-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: configure: removed stray ','
+
+2015-03-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.10.0
+
+2015-03-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/occtl-args.def, src/ocserv-args.def: doc update
+
+2015-03-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def: document GSSAPI authentication
+
+2015-03-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* TODO: doc update
+
+2015-03-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config: updated sample.config
+
+2015-03-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: disable DTLS if there is no ciphersuite in
+	common
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update: mention that
+	banning cannot be combined with listen-clear-file
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/main-ctl-unix.c, src/main-misc.c, src/main.c,
+	src/vpn.h: chroot_dir, occtl_socket_file and socket_file_prefix were
+	moved to permanent config options
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS, doc/sample.config, src/ocserv-args.def: updated
+	documentation with options that will be read in reload
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/vpn.h: increased the maximum configuration options to 96 That allows for up to 96 routes to be sent by the server.
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/test-gssapi,
+	tests/test-gssapi-local-map.config: tests: check whether local-map
+	in gssapi is required by default
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-03-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main.c: don't call exit from main process; use the termination
+	path
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-misc.c: always check tmsg for null prior to freeing it
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: corrected default value of DPD
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/cfg.h, src/subconfig.c: avoid warnings on type of the
+	parameter used for the allocation pool
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c: do not send IPv6 accounting with radius; there
+	is a bug in freeradius-client
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/main.c, src/main.h: clear_cfg_file() ->
+	clear_cfg()
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c: cast CMSG_DATA to avoid warnings
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/cfg.h, src/config.c, src/main-auth.c, src/main-ctl-unix.c,
+	src/main-misc.c, src/main-sec-mod-cmd.c, src/main.c, src/main.h,
+	src/sec-mod-auth.c, src/sec-mod-sup-config.c,
+	src/sec-mod-sup-config.h, src/sec-mod.c, src/sec-mod.h,
+	src/subconfig.c, src/tun.c, src/vpn.h, src/worker-auth.c,
+	src/worker-vpn.c, src/worker.h: separated permanent configuration
+	options from the reloaded ones
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/test-sighup, tests/test-sighup.config: 
+	tests: added check of behavior when SIGHUP is given
+
+2015-03-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c: sec-mod: will exit if it fails to process commands
+	from main
+
+2015-03-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac, src/Makefile.am, src/worker-http.c: added option to
+	completely disable compression support
+
+2015-03-01  David Woodhouse <David.Woodhouse@intel.com>
+
+	* src/lzs.c: Stop using 1ULL as the base value to be shifted in LZS
+	GET_BITS() Keeping this as an int is fine; it'll never be shifted by more than
+	9. And the promotion of (src[0] << (bits - bits_left)) from int to
+	unsigned long long makes Coverity unhappy because of the
+	sign-extension.  (patch copied from openconnect) Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-ctl-unix.c: main-ctl-unix: avoid using remove_proc()
+	unless necessary
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c: close stdin and stdout descriptors by default
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-ban.c: updated log message
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-ban.config: tests: added missing file
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/ipc.proto, src/main-misc.c,
+	src/main-sec-mod-cmd.c, src/sec-mod-auth.c, src/vpn.h: client stats
+	are conveyed to master through sec-mod That way both can keep a more accurate picture of user statistics.
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: worker only sends stats to sec-mod
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: simplified session open and close
+	handling
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-auth.c, src/main-misc.c: connects and disconnects to main
+	are logged with LOG_INFO
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/krb5.conf,
+	tests/docker-kerberos/ocserv.conf: tests: kerberos-test includes
+	check on KKDCP functionality
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/kkdcp.asn, src/kkdcp_asn1_tab.c: kkdcp.asn: use GeneralString
+	for KerberosString to follow RFC1510
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: worker: send correct ipv4 address when an IPv6
+	is present
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-kkdcp.c: kkdcp: fixes in post handler
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: removed pointless checks
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tun.c: tun: combined code used in SIOCIFDESTROY case
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tlslib.c: tlslib: eliminated pointless check
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tlslib.c: tlslib: call va_end earlier to avoid memory leak
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/subconfig.c: config: expand_brackets_string tolerates null
+	values
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/occtl-unix.c: occtl-unix: removed dead code
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-misc.c: worker: fixed caching of message received from
+	main
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: config: print the primary authentication method only
+	once
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c: radius: eliminate dead variable
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-ban, tests/test-cookie-timeout,
+	tests/test-cookie-timeout-2: tests: corrected copyright dates
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/test-ban: tests: added check for IP
+	banning subsystem
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ban.c, src/sec-mod-auth.c, src/worker-vpn.c: don't
+	attempt keeping scores for banning if banning is disabled
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/occtl.c: occtl: unban -> unban ip
+
+2015-02-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: do not reply on session close cmd
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-ban.c: don't print message on adding a banned entry if
+	already banned
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-ban.c: print the accurate time on banned IP expiration
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl-unix.c: occtl: banned IPs -> IPs in ban list
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ctl.proto, src/main-ctl-unix.c, src/main.h, src/occtl-unix.c: 
+	removed unused variables and structures
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl-unix.c: occtl: pretty print uptime
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl-time.c, src/occtl-unix.c, src/occtl.h: occtl: pretty
+	print expiration time in bans
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl.c: occtl: avoid crash on empty cmdline argument
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/Makefile.am: removed duplicate entries in makefile
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/occtl.c: occtl: rename show ip points to show ip ban points
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/config.c: PAM accounting is only included when PAM is enabled
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac, src/Makefile.am: include kkdcp_asn1_tab.c only when
+	GSSAPI is included
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod.c: removed unused parameter of select()
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/pam.h: include security/pam_appl.h only when PAM is
+	enabled
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/Makefile.am: removed obsolete file
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/occtl-ip-cache.c, src/occtl-unix.c,
+	src/occtl.c, src/occtl.h: occtl: added cache and completion for IP
+	addresses
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.h, src/main-ban.c, src/main-ban.h,
+	src/main-ctl-unix.c, src/occtl-unix.c, src/vpn.h: sanitize IP
+	addresses provided by occtl
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/occtl-unix.c, src/occtl.c, src/occtl.h: occtl: allow listing
+	only bans, or points
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ban.c: do not continuously extend the expiration time of
+	banned IP entry
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ctl.h, src/ctl.proto, src/main-ban.c, src/main-ban.h,
+	src/main-ctl-unix.c, src/occtl-unix.c, src/occtl.c, src/occtl.h: 
+	occtl: added ability to list banned, and unban IPs
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c: sec-mod: don't use a timeout value in select() There is no need for that.
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/main.c, src/system.c, src/system.h: removed
+	support for linux namespaces; they don't provide any advantage over
+	seccomp
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-gssapi: tests: only run test-gssapi if gssntlmssp is
+	found
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/config.c, src/main-ban.c,
+	src/ocserv-args.def, src/sec-mod-auth.c, src/vpn.h,
+	src/worker-kkdcp.c, src/worker-vpn.c: made the ban points
+	configurable
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/acct/radius.c, src/auth/gssapi.c,
+	src/auth/plain.c, src/auth/radius.c, src/config.c,
+	src/ocserv-args.def, src/sec-mod-acct.h, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/vpn.h: removed server-name config option
+
+2015-02-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/ipc.proto, src/log.c, src/main-ban.c,
+	src/main-ban.h, src/main-misc.c, src/main-sec-mod-cmd.c,
+	src/sec-mod-auth.c, src/vpn.h, src/worker-auth.c,
+	src/worker-kkdcp.c, src/worker-vpn.c, src/worker.h: When sending BAN
+	IP messages to main receive a reply on whether further actions
+	should continue That allows to BAN a user even during an open connection.
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: always send a reply to main
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: sec-mod: reply to main on failure to verify a
+	session open cmd
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c, src/worker-kkdcp.c, src/worker-misc.c,
+	src/worker-vpn.c, src/worker.h: worker: collect any ban points and
+	communicate them to main on exit
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test: tests: radius-test: cleanup
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ipc.proto, src/main-misc.c,
+	src/main-sec-mod-cmd.c, src/ocserv-args.def, src/sec-mod-auth.c,
+	src/vpn.h, src/worker-kkdcp.c: Added points in KKDCP connections to
+	prevent DoS attacks.
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ban.c, src/main.c: log message for rejected banned IP
+	connection was moved to main-ban.c
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ctl.proto, src/main-ctl-unix.c, src/occtl-unix.c: report the
+	number of banned IPs via occtl
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ban.c, src/vpn.h: HTTP debug messages moved to level 4
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/main-ban.c, src/ocserv-args.def, src/vpn.h: 
+	Add a cost in number of connections per IP to prevent DoS attacks
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/Makefile.am, src/config.c, src/ipc.proto,
+	src/main-ban.c, src/main-ban.h, src/main-sec-mod-cmd.c, src/main.c,
+	src/main.h, src/ocserv-args.def, src/sec-mod-auth.c,
+	src/sec-mod-ban.c, src/sec-mod.c, src/sec-mod.h, src/vpn.h: enforce
+	of IP banning was moved to main
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/main-misc.c, src/main-sec-mod-cmd.c,
+	src/main.c, src/main.h, src/sec-mod.c, src/sec-mod.h: simplify the
+	communication between main and sec-mod
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-debian-radius: tests: radius-test:
+	require freeradius-client 1.1.7
+
+2015-02-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: prevent accounting methods from switching on reload
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/acct/radius.c: radius: use the NAS identifier in accounting
+	too
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/acct/radius.c, src/auth/pam.c, src/auth/plain.c,
+	src/auth/radius.c: added sanity checks in auth methods
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/auth/radius.c, src/cfg.h,
+	src/ocserv-args.def, src/subconfig.c: allow explicitly specifying
+	the NAS identifier in radius
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test, tests/radius-test, tests/unix-test: tests: use
+	unique temp files
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c, src/worker-http.c, src/worker.h: worker: if a
+	client retries a POST/GET request without the X-Support-HTTP header
+	switch method That allows openconnect to retry using password authentication if it
+	has no ticket or so. To advertize that behavior we set the header
+	X-HTTP-Auth-Support: fallback in our 401 response.
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: check all methods when using
+	ws_switch_auth_to()
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-unix: unix-test: added lz4
+	in fedora
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/subconfig.c: when stealing values do not reallocate them
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/auth/plain.c, src/cfg.h, src/config.c,
+	src/ocserv-args.def, src/subconfig.c: plain authentication uses the
+	new parsing method
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/pam.c, src/cfg.h, src/config.c, src/subconfig.c: pam uses
+	the new sub-config format
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/acct/radius.c, src/auth/radius.c,
+	src/cfg.h, src/config.c, src/ocserv-args.def, src/subconfig.c: 
+	radius will use the new sub-config format
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-gssapi.config: tests: test-gssapi: use
+	require-local-user-map=false
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/Makefile.am, src/auth/gssapi.c, src/cfg.h,
+	src/config.c, src/ocserv-args.def, src/subconfig.c, src/vpn.h: Added
+	more advanced suboption parser That adds the ability to parse options in the form: auth =
+	"gssapi[option1=value1,option2=value2,...] It also introduces the
+	keytab, and require-local-user-map suboptions for gssapi.
+
+2015-02-24  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: when printing session information in log
+	restrict to 5 chars
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/ocserv-unix.conf, tests/unix-test: tests: fix
+	IPs in unix-test
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/kerberos-test: tests: set the proper hostname to KDC in
+	kerberos-test
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/kerberos-test, tests/test-gssapi: tests: updated checks for
+	gssapi
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* README: README: added krb5 dependency
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/ocserv-pam.conf,
+	tests/docker-ocserv/ocserv-radius.conf, tests/pam-test,
+	tests/radius-test: tests: changed IP addresses of radius and PAM
+	tests to not collide with full-test
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-02-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/Makefile.am, src/acct/pam.c,
+	src/acct/pam.h, src/acct/radius.c, src/acct/radius.h,
+	src/auth/pam.c, src/auth/pam.h, src/auth/radius.c,
+	src/auth/radius.h, src/config.c, src/ipc.proto,
+	src/ocserv-args.def, src/sec-mod-acct.h, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/sec-mod-db.c, src/sec-mod.h,
+	src/sup-config/file.c, src/vpn.h, src/worker-vpn.c,
+	tests/docker-ocserv/ocserv-pam.conf,
+	tests/docker-ocserv/ocserv-radius.conf: Separated accounting from
+	authentication.
+
+2015-02-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/kerberos-test: tests: updated kerberos-test
+
+2015-02-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c, src/ipc.proto, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/worker-vpn.c: radius: when sending
+	accounting information include any updated IP
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/Dockerfile-debian-unix: tests: added liblz4
+	into unix test and fixed IP addresses
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod.h: keep statistics over the
+	lifetime of a session rather than closing and opening the session
+	multiple times
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-db.c: when generating a unique SID check if it already
+	exists
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/Dockerfile-debian-radius,
+	tests/docker-ocserv/Dockerfile-debian-tcp,
+	tests/docker-ocserv/Dockerfile-debian-unix: tests: added more
+	dependencies for debian docker image
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/kerberos-test, tests/test-gssapi: test gssapi/kerberos only
+	when compiled with gssapi support
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: check state on session cmd
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/config.c, src/sec-mod-auth.c, src/vpn.h: when combining
+	multiple auth methods as primary, combine the name as well
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/system.c: corrected command issue check
+
+2015-02-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: removed pointless check
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-auth.c: main print username in new cookie session
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod-db.c, src/sec-mod.h: add part of
+	the session ID in logs to differentiate them
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config: fixed sample.config
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-db.c: sec-mod: check for expiration time of -1
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: prevent an auth init message when not
+	in inactive mode
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod.c: sec-mod: maintainance time was increased to be over
+	the default cookie expiration time
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: more verbose logging
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: corrected usage counting issue in
+	client entries kept
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: radius: improved log messages consistency
+
+2015-02-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/auth/gssapi.c, src/auth/plain.c,
+	src/auth/radius.c, src/config.c, src/main.c, src/ocserv-args.def,
+	src/sec-mod-auth.c, src/sec-mod-auth.h, src/vpn.h: Added the
+	configure option server-name If set it will be used to set the NAS_IDENTIFIER in radius.
+
+2015-02-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test, tests/kerberos-test, tests/pam-test,
+	tests/radius-test, tests/unix-test: tests: use env variable to leave
+	the docker image open
+
+2015-02-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: log http status replies
+
+2015-02-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/http-heads.gperf: renamed X-Support-SPNEGO to
+	X-Support-HTTP-Auth
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod.h: eliminated unneeded variable
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test: radius-test: fixed wrong password test
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-pam,
+	tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/Dockerfile-fedora-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-unix: tests: added the
+	kerberos libs as dependencies
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: radius: fixed config string parsing
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-explicit-ip, tests/user-config-explicit/test3: tests:
+	fixed explicit-ip check
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: sec-mod-auth: use auth_user module function
+	only when a module is available
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/docker-ocserv/Dockerfile-fedora-pam,
+	tests/docker-ocserv/Makefile.am,
+	tests/docker-ocserv/ocserv-pam.conf,
+	tests/docker-ocserv/pam-ocserv, tests/pam-test, tests/test-pam,
+	tests/test-pam.config: tests: added PAM test suite
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test, tests/radius-test: tests: added negative
+	authentication checks
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/docker-common.sh: tests: added
+	kerberos-test
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS, configure.ac: bumped version and updated NEWS
+
+2015-02-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* .gitignore, configure.ac, tests/Makefile.am,
+	tests/docker-common.sh,
+	tests/docker-kerberos/Dockerfile-fedora-client,
+	tests/docker-kerberos/Dockerfile-fedora-kerberos,
+	tests/docker-kerberos/Makefile.am, tests/docker-kerberos/ca.pem,
+	tests/docker-kerberos/cert.pem, tests/docker-kerberos/dbus.service,
+	tests/docker-kerberos/k5.KERBEROS.TEST,
+	tests/docker-kerberos/kadm5.acl, tests/docker-kerberos/kdc.conf,
+	tests/docker-kerberos/key.pem, tests/docker-kerberos/krb5.conf,
+	tests/docker-kerberos/myscript, tests/docker-kerberos/ocserv.conf,
+	tests/docker-kerberos/pam-ocserv, tests/docker-kerberos/passwd,
+	tests/kerberos-test: tests: added kerberos test suite
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/config.c, src/kkdcp.asn,
+	src/kkdcp_asn1_tab.c, src/ocserv-args.def, src/vpn.h,
+	src/worker-kkdcp.c: kkdcp: allow the handling of multiple realms per
+	URL
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-misc.c, src/main.c: reduced level of command socket
+	closed error
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c: gssapi: better log messages
+
+2015-02-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/pam.c: pam: return empty message when not in the
+	appropriate state
+
+2015-02-18  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c: gssapi: require the localname to login
+
+2015-02-18  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-kkdcp.c: kkdcp: attempt to read the whole message
+
+2015-02-18  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-kkdcp.c: corrected DER message construction
+
+2015-02-18  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/sup-config/file.c: sanitized strcmp check
+
+2015-02-18  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: Use content-length: 0 when closing connection
+
+2015-02-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: when cookie is present avoid basic
+	authentication
+
+2015-02-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ipc.proto, src/worker-auth.c, src/worker-http.c: doc update
+
+2015-02-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/sec-mod-auth.c: update username in GSSAPI
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, doc/sample.config, src/Makefile.am, src/config.c,
+	src/kkdcp.asn, src/kkdcp_asn1_tab.c, src/main.c,
+	src/ocserv-args.def, src/worker-kkdcp.c, src/worker.h: kkdcp:
+	perform the proper encoding and decoding on exchanged data
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/config.c, src/vpn.h, src/worker-http.c,
+	src/worker-kkdcp.c, src/worker-urlfw.c, src/worker.h: renamed urlfw
+	to kkdcp
+
+2015-02-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: more specific log message
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def,
+	src/sec-mod-ban.c, src/vpn.h: Added max-password-retries config
+	option That makes the number of retries prior to banning the IP
+	configurable.
+
+2015-02-14  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/common.h, src/auth/plain.c, src/auth/radius.c,
+	src/main.h, src/sec-mod-auth.c, src/sec-mod-auth.h,
+	src/sec-mod-ban.c, src/sec-mod.h, src/worker-auth.c: Ban an IP only
+	when the MAX_PASSWORD_TRIES attempts have been exceeded
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/gssapi.c: gssapi: better error printing and restrict to
+	SPNEGO
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/http-heads.gperf, src/worker-http.c, src/worker.h: 
+	X-Need-SPNEGO renamed to X-Support-SPNEGO
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c, src/worker.h: if gssapi authentication fails,
+	switch to password auth if possible
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: prohibit worker from sending an auth_type of
+	zero
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: Fail if authentication modules are changed on reload
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/auth/pam.c, src/auth/plain.c,
+	src/auth/radius.c, src/auth/radius.h, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/sec-mod.h: Additional data are passed only
+	to auth module's global_init
+
+2015-02-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/config.c, src/vpn.h, src/worker-urlfw.c: 
+	Allow setting content-type urlfw, and allow tcp
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def: updated documentation
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/Makefile.am, src/config.c, src/vpn.h,
+	src/worker-http.c, src/worker-urlfw.c, src/worker-vpn.c,
+	src/worker.h: Added url-fw config option That allows to specify a class of URLs where, if a client POSTS to
+	it, the data will be forwarded to the configured server, and the
+	client will receive its reply.
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tlslib.c: use vasprintf() in cstp_printf()
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/auth/pam.c, src/auth/plain.c,
+	src/auth/radius.c, src/sec-mod-auth.c, src/sec-mod-auth.h,
+	src/sec-mod-db.c, src/sec-mod.h, src/vpn.h, src/worker-auth.c: 
+	eliminated auth message upper limit
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/test-gssapi, tests/test-gssapi.config: 
+	test-gssapi: added check for gssapi authentication
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/vpn.h: increased maximum message size to
+	2048
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c, src/worker-auth.c: Ensure that any messages
+	are being forwarded even on success packet
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: only print WWW-Authenticate when there are data
+	to print
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: Allow GSSAPI authentication even from GET
+	commands
+
+2015-02-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tlslib.c: In certificate verification separate between no
+	certificate and verification failure
+
+2015-02-11  Kevin Cernekee <cernekee@gmail.com>
+
+	* src/auth/gssapi.c: gssapi: Don't include gssapi header files if
+	!HAVE_GSSAPI This fixes:       CC       auth/gssapi.o     auth/gssapi.c:30:27: fatal error: gssapi/gssapi.h: No such file
+	     or directory #include <gssapi/gssapi.h>                                ^
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/test-pass-opt-cert, tests/test-pass-opt-cert.config,
+	tests/user-config-opt/test: test-pass-opt-cert: updated for
+	enable-auth config option
+
+2015-02-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ipc.proto, src/main-auth.c,
+	src/main-misc.c, src/ocserv-args.def, src/sec-mod-auth.c,
+	src/sup-config/file.c, src/vpn.h, src/worker-auth.c: removed the
+	certificate[optional] auth type
+
+2015-02-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/Makefile.am, src/auth/gssapi.c,
+	src/auth/gssapi.h, src/auth/pam.c, src/auth/plain.c,
+	src/auth/radius.c, src/config.c, src/http-heads.gperf,
+	src/ipc.proto, src/main.h, src/ocserv-args.def, src/sec-mod-auth.c,
+	src/sec-mod.c, src/sec-mod.h, src/tlslib.c, src/vpn.h,
+	src/worker-auth.c, src/worker-http.c, src/worker-vpn.c,
+	src/worker.h: Added GSSAPI as an additional password auth mechanism That also adds the ability to support an OR composition of multiple
+	authentication methods. That is using the 'enable-auth' config
+	option.
+
 2015-02-18  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* NEWS, configure.ac: bumped version

@@ -32,6 +32,7 @@ fi
 CONFIG="radius"
 IMAGE=ocserv-radius-test
 IMAGE_NAME=test_ocserv_radius
+TMP=$IMAGE_NAME.tmp
 . ./docker-common.sh
 
 $DOCKER run -P --privileged=true -p $PORT:$PORT/udp -p $PORT2:$PORT2/udp -p 22 -p $PORT_OCSERV:$PORT_OCSERV/udp --tty=false -d --name test_ocserv_radius $IMAGE
@@ -51,77 +52,96 @@ if test -z "$IP";then
 fi
 echo "Detected IP: $IP"
 
-printf "test\ntest\n" >pass.tmp
-openconnect $IP:$PORT_OCSERV -u test --passwd-on-stdin -v --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 < pass.tmp &
+if test ! -z "$QUIT_ON_INIT";then
+	exit 0
+fi
+
+printf "testuser\n" >pass-radius$TMP
+openconnect $IP:$PORT_OCSERV -u test --passwd-on-stdin -v --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly < pass-radius$TMP
+if test $? = 0;then
+	echo "Authentication with wrong password succeeded!"
+	stop
+fi
+
+printf "test\n" >pass-radius$TMP
+openconnect $IP:$PORT_OCSERV -u testuser --passwd-on-stdin -v --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly < pass-radius$TMP
+if test $? = 0;then
+	echo "Authentication with wrong username succeeded!"
+	stop
+fi
+
+echo "Trying with correct password"
+printf "test\n" >pass-radius$TMP
+openconnect $IP:$PORT_OCSERV -u test --passwd-on-stdin -v --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 < pass-radius$TMP &
 PID=$!
 
-rm -f pass.tmp
+rm -f pass-radius$TMP
 
 #wait for openconnect
 sleep 5
 
 # The client IP depends on the username so it shouldn't change.
-ping -w 5 192.168.1.1
+ping -w 5 192.168.55.1
 if test $? != 0;then
 	kill $PID
 	echo "Cannot ping ocserv"
 	stop
 fi
 
-ping -w 5 192.168.1.1 -s 1500
+ping -w 5 192.168.55.1 -s 1500
 if test $? != 0;then
 	kill $PID
 	echo "Cannot ping ocserv"
 	stop
 fi
 
-ping6 -w 5 fd91:6d87:7341:db6a::1
+ping6 -w 5 fd91:6d87:7341:dd6b::1
 if test $? != 0;then
 	kill $PID
 	echo "Cannot ping the IPv6 of ocserv"
 	stop
 fi
 
-echo "UserKnownHostsFile ./known-hosts.tmp" >config.tmp
-printf "#\!/bin/sh\n" >echo-admin.tmp
-printf "echo yes" >>echo-admin.tmp
-printf "echo root" >>echo-admin.tmp
-printf "\n" >>echo-admin.tmp
-chmod 755 echo-admin.tmp
-export SSH_ASKPASS="./echo-admin.tmp"
-setsid ssh -T -F config.tmp root@192.168.1.1 occtl show user test >out.tmp 2>&1
-cat out.tmp
+echo "UserKnownHostsFile ./known-hosts$TMP" >config$TMP
+printf "#\!/bin/sh\n" >echo-admin$TMP
+printf "echo yes" >>echo-admin$TMP
+printf "echo root" >>echo-admin$TMP
+printf "\n" >>echo-admin$TMP
+chmod 755 echo-admin$TMP
+export SSH_ASKPASS="./echo-admin$TMP"
+setsid ssh -T -F config$TMP root@192.168.55.1 occtl show user test >out$TMP 2>&1
+cat out$TMP
 
-printf "#\!/bin/sh\n" >echo-admin.tmp
-printf "echo root" >>echo-admin.tmp
-printf "\n" >>echo-admin.tmp
-chmod 755 echo-admin.tmp
-setsid ssh -T -F config.tmp root@192.168.1.1 occtl show user test >out.tmp 2>&1
-cat out.tmp
-rm -f echo-admin.tmp
-rm -f config.tmp
-rm -f known-hosts.tmp
+printf "#\!/bin/sh\n" >echo-admin$TMP
+printf "echo root" >>echo-admin$TMP
+printf "\n" >>echo-admin$TMP
+chmod 755 echo-admin$TMP
+setsid ssh -T -F config$TMP root@192.168.55.1 occtl show user test >out$TMP 2>&1
+cat out$TMP
+rm -f echo-admin$TMP
+rm -f config$TMP
+rm -f known-hosts$TMP
 
-grep "Username" out.tmp
+grep "Username" out$TMP
 if test $? != 0;then
 	kill $PID
 	echo "could not find user information"
 	stop
 fi
 
-rm -f out.tmp
+rm -f out$TMP
 
 # There is an issue in nuttcp that makes it crash under docker if
 # /proc/sys/net/ipv4/tcp_adv_win_scale does not exist.
 if test "$FEDORA" = 1;then
-nuttcp -T 10 -t 192.168.1.1
+nuttcp -T 10 -t 192.168.55.1
 if test $? != 0;then
 	kill $PID
 	echo "Cannot send to ocserv"
 	stop
 fi
 
-nuttcp -T 10 -r 192.168.1.1
+nuttcp -T 10 -r 192.168.55.1
 if test $? != 0;then
 	kill $PID
 	echo "Cannot recv from ocserv"
@@ -129,33 +149,48 @@ if test $? != 0;then
 fi
 fi
 
-sleep 2
+echo "Waiting for accounting report"
+sleep 60
 
 kill $PID
 
 sleep 4
 
+TMPDIR=radius-$TMP
+mkdir -p $TMPDIR
 #check whether /tmp/disconnect/ok was created
-rm -f ./not-ok
-$DOCKER cp test_ocserv_radius:/tmp/disconnect/not-ok ./
-if test -f ./not-ok;then
+rm -f $TMPDIR/not-ok
+$DOCKER cp test_ocserv_radius:/tmp/disconnect/not-ok $TMPDIR/
+if test -f $TMPDIR/not-ok;then
 	echo "There was an issue getting stats"
 	stop
 fi
-rm -f ./not-ok
+rm -f $TMPDIR/not-ok
 
-ret=0
+rm -f $TMPDIR/stats
 
-rm -f ./tmp-full/ok
-$DOCKER cp test_ocserv_radius:/tmp/disconnect/ok ./tmp-full/
-if ! test -f ./tmp-full/ok;then
+FILE=`$DOCKER exec test_ocserv_radius ls /var/log/radius/radacct/127.0.0.1/`
+echo $DOCKER exec test_ocserv_radius cat "/var/log/radius/radacct/127.0.0.1/$FILE"
+$DOCKER exec test_ocserv_radius cat "/var/log/radius/radacct/127.0.0.1/$FILE"
+
+OCTETS=`$DOCKER exec test_ocserv_radius cat "/var/log/radius/radacct/127.0.0.1/$FILE"|grep Acct-Input-Octets|tail -1|sed 's/Acct-Input-Octets = //g'`
+if test -z "$OCTETS" || test "$OCTETS" = 0;then
+	echo "Interim update showed no data!"
+	stop
+fi
+
+rm -f $TMPDIR/ok
+$DOCKER cp test_ocserv_radius:/tmp/disconnect/ok $TMPDIR/
+if ! test -f $TMPDIR/ok;then
 	echo "Don't know if stats were received"
 	ret=77
 else
 	echo -n "stats: "
-	echo `cat ./tmp-full/ok`
-	rm -rf ./tmp-full/
+	echo `cat $TMPDIR/ok`
+	rm -rf $TMPDIR/
 fi
+
+ret=0
 
 $DOCKER stop test_ocserv_radius
 $DOCKER rm test_ocserv_radius

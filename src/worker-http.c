@@ -24,10 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_LZ4
-# include <lz4.h>
+#ifdef ENABLE_COMPRESSION
+# ifdef HAVE_LZ4
+#  include <lz4.h>
+# endif
+# include "lzs.h"
 #endif
-#include "lzs.h"
 
 #include <base64.h>
 #include <c-strcase.h>
@@ -130,6 +132,7 @@ int lz4_compress(void *dst, int dstlen, const void *src, int srclen)
 }
 #endif
 
+#ifdef ENABLE_COMPRESSION
 struct compression_method_st comp_methods[] = {
 #ifdef HAVE_LZ4
 	{
@@ -148,6 +151,7 @@ struct compression_method_st comp_methods[] = {
 		.server_prio = 80,
 	}
 };
+#endif
 
 static
 void header_value_check(struct worker_st *ws, struct http_req_st *req)
@@ -166,7 +170,7 @@ void header_value_check(struct worker_st *ws, struct http_req_st *req)
 	if (req->value.length <= 0)
 		return;
 
-	oclog(ws, LOG_HTTP_DEBUG, "HTTP: %.*s: %.*s", (int)req->header.length,
+	oclog(ws, LOG_HTTP_DEBUG, "HTTP processing: %.*s: %.*s", (int)req->header.length,
 	      req->header.data, (int)req->value.length, req->value.data);
 
 	value = talloc_size(ws, req->value.length + 1);
@@ -203,6 +207,17 @@ void header_value_check(struct worker_st *ws, struct http_req_st *req)
 		break;
 	case HEADER_DEVICE_TYPE:
 		req->is_mobile = 1;
+		break;
+	case HEADER_SUPPORT_SPNEGO:
+		ws_switch_auth_to(ws, AUTH_TYPE_GSSAPI);
+		req->spnego_set = 1;
+		break;
+	case HEADER_AUTHORIZATION:
+		if (req->authorization != NULL)
+			talloc_free(req->authorization);
+		req->authorization = value;
+		req->authorization_size = value_length;
+		value = NULL;
 		break;
 	case HEADER_USER_AGENT:
 		if (value_length + 1 > MAX_AGENT_NAME) {
@@ -262,7 +277,7 @@ void header_value_check(struct worker_st *ws, struct http_req_st *req)
 	        req->selected_ciphersuite = cand;
 
 		break;
-
+#ifdef ENABLE_COMPRESSION
 	case HEADER_DTLS_ENCODING:
 	case HEADER_CSTP_ENCODING:
 	        if (ws->config->enable_compression == 0)
@@ -291,8 +306,8 @@ void header_value_check(struct worker_st *ws, struct http_req_st *req)
 			str = NULL;
 		}
 	        *selected_comp = comp_cand;
-
 		break;
+#endif
 
 	case HEADER_CSTP_BASE_MTU:
 		req->base_mtu = atoi((char *)value);
@@ -398,9 +413,10 @@ url_handler_fn http_get_url_handler(const char *url)
 	return NULL;
 }
 
-url_handler_fn http_post_url_handler(const char *url)
+url_handler_fn http_post_url_handler(struct worker_st *ws, const char *url)
 {
 	const struct known_urls_st *p;
+	unsigned i;
 
 	p = known_urls;
 	do {
@@ -408,6 +424,11 @@ url_handler_fn http_post_url_handler(const char *url)
 			return p->post_handler;
 		p++;
 	} while (p->url != NULL);
+
+	for (i=0;i<ws->config->kkdcp_size;i++) {
+		if (ws->config->kkdcp[i].url && strcmp(ws->config->kkdcp[i].url, url) == 0)
+			return post_kkdcp_handler;
+	}
 
 	return NULL;
 }
@@ -492,6 +513,14 @@ int http_header_complete_cb(http_parser * parser)
 	/* handle header value */
 	header_value_check(ws, req);
 
+	if (ws->selected_auth->type & AUTH_TYPE_GSSAPI && ws->auth_state == S_AUTH_INACTIVE &&
+	    req->spnego_set == 0) {
+		/* client retried getting the form without the SPNEGO header, probably
+		 * wants a fallback authentication method */
+		if (ws_switch_auth_to(ws, AUTH_TYPE_USERNAME_PASS) == 0)
+			oclog(ws, LOG_INFO, "no fallback to gssapi authentication");
+	}
+
 	req->headers_complete = 1;
 	return 0;
 }
@@ -534,6 +563,7 @@ void http_req_reset(worker_st * ws)
 	ws->req.headers_complete = 0;
 	ws->req.message_complete = 0;
 	ws->req.body_length = 0;
+	ws->req.spnego_set = 0;
 	ws->req.url[0] = 0;
 
 	ws->req.header_state = HTTP_HEADER_INIT;

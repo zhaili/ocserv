@@ -44,7 +44,6 @@ struct cfg_options {
 static struct cfg_options available_options[] = {
 	{ .name = "no-udp", .type = OPTION_BOOLEAN },
 	{ .name = "deny-roaming", .type = OPTION_BOOLEAN },
-	{ .name = "require-cert", .type = OPTION_BOOLEAN },
 	{ .name = "route", .type = OPTION_MULTI_LINE },
 	{ .name = "no-route", .type = OPTION_MULTI_LINE },
 	{ .name = "iroute", .type = OPTION_MULTI_LINE },
@@ -77,7 +76,7 @@ static struct cfg_options available_options[] = {
 		do { \
 		        if (num >= MAX_CONFIG_ENTRIES) \
 			        break; \
-		        if (val && !strcmp(val->pzName, name)==0) \
+		        if (val && strcmp(val->pzName, name)!=0) \
 				continue; \
 		        s_name[num] = talloc_strdup(pool, val->v.strVal); \
 		        num++; \
@@ -183,7 +182,6 @@ unsigned prefix = 0;
 
 	READ_TF("no-udp", msg->no_udp, msg->has_no_udp);
 	READ_TF("deny-roaming", msg->deny_roaming, msg->has_deny_roaming);
-	READ_TF("require-cert", msg->require_cert, msg->has_require_cert);
 
 	READ_RAW_MULTI_LINE("route", msg->routes, msg->n_routes);
 	READ_RAW_MULTI_LINE("no-route", msg->no_routes, msg->n_no_routes);
@@ -271,9 +269,9 @@ static int get_sup_config(struct cfg_st *cfg, client_entry_st *entry,
 	char file[_POSIX_PATH_MAX];
 	int ret;
 
-	if (cfg->per_group_dir != NULL && entry->groupname[0] != 0) {
+	if (cfg->per_group_dir != NULL && entry->auth_info.groupname[0] != 0) {
 		snprintf(file, sizeof(file), "%s/%s", cfg->per_group_dir,
-			 entry->groupname);
+			 entry->auth_info.groupname);
 
 		ret = read_sup_config_file(cfg, msg, pool, file, cfg->default_group_conf, "group");
 		if (ret < 0)
@@ -282,7 +280,7 @@ static int get_sup_config(struct cfg_st *cfg, client_entry_st *entry,
 
 	if (cfg->per_user_dir != NULL) {
 		snprintf(file, sizeof(file), "%s/%s", cfg->per_user_dir,
-			 entry->username);
+			 entry->auth_info.username);
 		ret = read_sup_config_file(cfg, msg, pool, file, cfg->default_user_conf, "user");
 		if (ret < 0)
 			return ret;
