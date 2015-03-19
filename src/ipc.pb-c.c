@@ -394,6 +394,92 @@ void   session_info_msg__free_unpacked
   assert(message->base.descriptor == &session_info_msg__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   ban_ip_msg__init
+                     (BanIpMsg         *message)
+{
+  static BanIpMsg init_value = BAN_IP_MSG__INIT;
+  *message = init_value;
+}
+size_t ban_ip_msg__get_packed_size
+                     (const BanIpMsg *message)
+{
+  assert(message->base.descriptor == &ban_ip_msg__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t ban_ip_msg__pack
+                     (const BanIpMsg *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &ban_ip_msg__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t ban_ip_msg__pack_to_buffer
+                     (const BanIpMsg *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &ban_ip_msg__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+BanIpMsg *
+       ban_ip_msg__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (BanIpMsg *)
+     protobuf_c_message_unpack (&ban_ip_msg__descriptor,
+                                allocator, len, data);
+}
+void   ban_ip_msg__free_unpacked
+                     (BanIpMsg *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &ban_ip_msg__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   ban_ip_reply_msg__init
+                     (BanIpReplyMsg         *message)
+{
+  static BanIpReplyMsg init_value = BAN_IP_REPLY_MSG__INIT;
+  *message = init_value;
+}
+size_t ban_ip_reply_msg__get_packed_size
+                     (const BanIpReplyMsg *message)
+{
+  assert(message->base.descriptor == &ban_ip_reply_msg__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t ban_ip_reply_msg__pack
+                     (const BanIpReplyMsg *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &ban_ip_reply_msg__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t ban_ip_reply_msg__pack_to_buffer
+                     (const BanIpReplyMsg *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &ban_ip_reply_msg__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+BanIpReplyMsg *
+       ban_ip_reply_msg__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (BanIpReplyMsg *)
+     protobuf_c_message_unpack (&ban_ip_reply_msg__descriptor,
+                                allocator, len, data);
+}
+void   ban_ip_reply_msg__free_unpacked
+                     (BanIpReplyMsg *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &ban_ip_reply_msg__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   sec_auth_init_msg__init
                      (SecAuthInitMsg         *message)
 {
@@ -1279,7 +1365,7 @@ const ProtobufCMessageDescriptor tun_mtu_msg__descriptor =
   (ProtobufCMessageInit) tun_mtu_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[4] =
+static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[7] =
 {
   {
     "bytes_in",
@@ -1329,17 +1415,56 @@ static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[4] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "remote_ip",
+    5,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(CliStatsMsg, remote_ip),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "ipv4",
+    6,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(CliStatsMsg, ipv4),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "ipv6",
+    7,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(CliStatsMsg, ipv6),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned cli_stats_msg__field_indices_by_name[] = {
   0,   /* field[0] = bytes_in */
   1,   /* field[1] = bytes_out */
+  5,   /* field[5] = ipv4 */
+  6,   /* field[6] = ipv6 */
+  4,   /* field[4] = remote_ip */
   2,   /* field[2] = sid */
   3,   /* field[3] = uptime */
 };
 static const ProtobufCIntRange cli_stats_msg__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 7 }
 };
 const ProtobufCMessageDescriptor cli_stats_msg__descriptor =
 {
@@ -1349,7 +1474,7 @@ const ProtobufCMessageDescriptor cli_stats_msg__descriptor =
   "CliStatsMsg",
   "",
   sizeof(CliStatsMsg),
-  4,
+  7,
   cli_stats_msg__field_descriptors,
   cli_stats_msg__field_indices_by_name,
   1,  cli_stats_msg__number_ranges,
@@ -1498,8 +1623,98 @@ const ProtobufCMessageDescriptor session_info_msg__descriptor =
   (ProtobufCMessageInit) session_info_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const ProtobufCFieldDescriptor ban_ip_msg__field_descriptors[2] =
+{
+  {
+    "ip",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(BanIpMsg, ip),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "score",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(BanIpMsg, score),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned ban_ip_msg__field_indices_by_name[] = {
+  0,   /* field[0] = ip */
+  1,   /* field[1] = score */
+};
+static const ProtobufCIntRange ban_ip_msg__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor ban_ip_msg__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "ban_ip_msg",
+  "BanIpMsg",
+  "BanIpMsg",
+  "",
+  sizeof(BanIpMsg),
+  2,
+  ban_ip_msg__field_descriptors,
+  ban_ip_msg__field_indices_by_name,
+  1,  ban_ip_msg__number_ranges,
+  (ProtobufCMessageInit) ban_ip_msg__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor ban_ip_reply_msg__field_descriptors[1] =
+{
+  {
+    "reply",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_ENUM,
+    0,   /* quantifier_offset */
+    offsetof(BanIpReplyMsg, reply),
+    &auth__rep__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned ban_ip_reply_msg__field_indices_by_name[] = {
+  0,   /* field[0] = reply */
+};
+static const ProtobufCIntRange ban_ip_reply_msg__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor ban_ip_reply_msg__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "ban_ip_reply_msg",
+  "BanIpReplyMsg",
+  "BanIpReplyMsg",
+  "",
+  sizeof(BanIpReplyMsg),
+  1,
+  ban_ip_reply_msg__field_descriptors,
+  ban_ip_reply_msg__field_indices_by_name,
+  1,  ban_ip_reply_msg__number_ranges,
+  (ProtobufCMessageInit) ban_ip_reply_msg__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const protobuf_c_boolean sec_auth_init_msg__tls_auth_ok__default_value = 0;
-static const ProtobufCFieldDescriptor sec_auth_init_msg__field_descriptors[7] =
+static const uint32_t sec_auth_init_msg__auth_type__default_value = 0u;
+static const ProtobufCFieldDescriptor sec_auth_init_msg__field_descriptors[8] =
 {
   {
     "tls_auth_ok",
@@ -1585,8 +1800,21 @@ static const ProtobufCFieldDescriptor sec_auth_init_msg__field_descriptors[7] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "auth_type",
+    9,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(SecAuthInitMsg, auth_type),
+    NULL,
+    &sec_auth_init_msg__auth_type__default_value,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned sec_auth_init_msg__field_indices_by_name[] = {
+  7,   /* field[7] = auth_type */
   4,   /* field[4] = cert_group_names */
   3,   /* field[3] = cert_user_name */
   2,   /* field[2] = group_name */
@@ -1598,7 +1826,7 @@ static const unsigned sec_auth_init_msg__field_indices_by_name[] = {
 static const ProtobufCIntRange sec_auth_init_msg__number_ranges[1 + 1] =
 {
   { 2, 0 },
-  { 0, 7 }
+  { 0, 8 }
 };
 const ProtobufCMessageDescriptor sec_auth_init_msg__descriptor =
 {
@@ -1608,7 +1836,7 @@ const ProtobufCMessageDescriptor sec_auth_init_msg__descriptor =
   "SecAuthInitMsg",
   "",
   sizeof(SecAuthInitMsg),
-  7,
+  8,
   sec_auth_init_msg__field_descriptors,
   sec_auth_init_msg__field_indices_by_name,
   1,  sec_auth_init_msg__number_ranges,
@@ -2053,7 +2281,7 @@ const ProtobufCMessageDescriptor sec_auth_session_msg__descriptor =
   (ProtobufCMessageInit) sec_auth_session_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descriptors[20] =
+static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descriptors[19] =
 {
   {
     "reply",
@@ -2086,18 +2314,6 @@ static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descript
     PROTOBUF_C_TYPE_BOOL,
     offsetof(SecAuthSessionReplyMsg, has_deny_roaming),
     offsetof(SecAuthSessionReplyMsg, deny_roaming),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "require_cert",
-    12,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_BOOL,
-    offsetof(SecAuthSessionReplyMsg, has_require_cert),
-    offsetof(SecAuthSessionReplyMsg, require_cert),
     NULL,
     NULL,
     0,             /* flags */
@@ -2297,32 +2513,32 @@ static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descript
   },
 };
 static const unsigned sec_auth_session_reply_msg__field_indices_by_name[] = {
-  12,   /* field[12] = cgroup */
+  11,   /* field[11] = cgroup */
   2,   /* field[2] = deny_roaming */
-  6,   /* field[6] = dns */
-  17,   /* field[17] = explicit_ipv4 */
-  18,   /* field[18] = explicit_ipv6 */
-  8,   /* field[8] = ipv4_net */
-  9,   /* field[9] = ipv4_netmask */
-  10,   /* field[10] = ipv6_net */
-  11,   /* field[11] = ipv6_prefix */
-  5,   /* field[5] = iroutes */
-  7,   /* field[7] = nbns */
-  16,   /* field[16] = net_priority */
-  19,   /* field[19] = no_routes */
+  5,   /* field[5] = dns */
+  16,   /* field[16] = explicit_ipv4 */
+  17,   /* field[17] = explicit_ipv6 */
+  7,   /* field[7] = ipv4_net */
+  8,   /* field[8] = ipv4_netmask */
+  9,   /* field[9] = ipv6_net */
+  10,   /* field[10] = ipv6_prefix */
+  4,   /* field[4] = iroutes */
+  6,   /* field[6] = nbns */
+  15,   /* field[15] = net_priority */
+  18,   /* field[18] = no_routes */
   1,   /* field[1] = no_udp */
   0,   /* field[0] = reply */
-  3,   /* field[3] = require_cert */
-  4,   /* field[4] = routes */
-  14,   /* field[14] = rx_per_sec */
-  15,   /* field[15] = tx_per_sec */
-  13,   /* field[13] = xml_config_file */
+  3,   /* field[3] = routes */
+  13,   /* field[13] = rx_per_sec */
+  14,   /* field[14] = tx_per_sec */
+  12,   /* field[12] = xml_config_file */
 };
-static const ProtobufCIntRange sec_auth_session_reply_msg__number_ranges[2 + 1] =
+static const ProtobufCIntRange sec_auth_session_reply_msg__number_ranges[3 + 1] =
 {
   { 1, 0 },
   { 10, 1 },
-  { 0, 20 }
+  { 13, 3 },
+  { 0, 19 }
 };
 const ProtobufCMessageDescriptor sec_auth_session_reply_msg__descriptor =
 {
@@ -2332,10 +2548,10 @@ const ProtobufCMessageDescriptor sec_auth_session_reply_msg__descriptor =
   "SecAuthSessionReplyMsg",
   "",
   sizeof(SecAuthSessionReplyMsg),
-  20,
+  19,
   sec_auth_session_reply_msg__field_descriptors,
   sec_auth_session_reply_msg__field_indices_by_name,
-  2,  sec_auth_session_reply_msg__number_ranges,
+  3,  sec_auth_session_reply_msg__number_ranges,
   (ProtobufCMessageInit) sec_auth_session_reply_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

@@ -21,8 +21,31 @@
 #ifndef PAM_H
 #define PAM_H
 
+#include <config.h>
 #include <sec-mod-auth.h>
 
+#ifdef HAVE_PAM
+
+#include <security/pam_appl.h>
+#include <str.h>
+#include <pcl.h>
+
 extern const struct auth_mod_st pam_auth_funcs;
+
+struct pam_ctx_st {
+	char password[MAX_PASSWORD_SIZE];
+	char username[MAX_USERNAME_SIZE];
+	pam_handle_t * ph;
+	struct pam_conv dc;
+	coroutine_t cr;
+	int cr_ret;
+	unsigned changing; /* whether we are entering a new password */
+	str_st msg;
+	unsigned sent_msg;
+	struct pam_response *replies; /* for safety */
+	unsigned state; /* PAM_S_ */
+};
+
+#endif
 
 #endif

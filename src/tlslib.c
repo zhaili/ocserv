@@ -26,6 +26,9 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE /* for vasprintf() */
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -198,17 +201,20 @@ unsigned tls_has_session_cert(struct worker_st * ws)
 int __attribute__ ((format(printf, 2, 3)))
     cstp_printf(worker_st *ws, const char *fmt, ...)
 {
-	char buf[1024];
+	char *buf;
 	va_list args;
-	size_t s;
-
-	buf[1023] = 0;
+	int ret, s;
 
 	va_start(args, fmt);
-	s = vsnprintf(buf, 1023, fmt, args);
+	s = vasprintf(&buf, fmt, args);
 	va_end(args);
-	return cstp_send(ws, buf, s);
 
+	if (s == -1)
+		return -1;
+
+	ret = cstp_send(ws, buf, s);
+	free(buf);
+	return ret;
 }
 
 void cstp_close(worker_st *ws)
@@ -368,6 +374,10 @@ static int verify_certificate_cb(gnutls_session_t session)
 	 * structure. So you must have installed one or more CA certificates.
 	 */
 	ret = gnutls_certificate_verify_peers2(session, &status);
+	if (ret == GNUTLS_E_NO_CERTIFICATE_FOUND) {
+		oclog(ws, LOG_ERR, "no certificate was found");
+		goto no_cert;
+	}
 	if (ret < 0) {
 		oclog(ws, LOG_ERR, "error verifying client certificate: %s", gnutls_strerror(ret));
 		goto fail;
@@ -395,14 +405,11 @@ static int verify_certificate_cb(gnutls_session_t session)
 
 	/* notify gnutls to continue handshake normally */
 	return 0;
-fail:
-	/* In cisco client compatibility we don't hangup immediately, we
-	 * simply use the flag (ws->cert_auth_ok). */
-	if (ws->config->cisco_client_compat == 0)
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	else
+no_cert:
+	if (ws->config->cisco_client_compat != 0 || ws->config->cert_req != GNUTLS_CERT_REQUIRE)
 		return 0;
-
+fail:
+	return GNUTLS_E_CERTIFICATE_ERROR;
 }
 
 void tls_global_init(tls_st *creds)
@@ -560,8 +567,7 @@ int key_cb_common_func (gnutls_privkey_t key, void* userdata, const gnutls_datum
 
 	memcpy(output->data, reply->data.data, reply->data.len);
 
-	if (reply != NULL)
-		sec_op_msg__free_unpacked(reply, &pa);
+	sec_op_msg__free_unpacked(reply, &pa);
 	return 0;
 
 error:

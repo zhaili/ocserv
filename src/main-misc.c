@@ -55,6 +55,7 @@
 #include <cookies.h>
 #include <tun.h>
 #include <main.h>
+#include <main-ban.h>
 #include <ccan/list/list.h>
 
 int set_tun_mtu(main_server_st * s, struct proc_st *proc, unsigned mtu)
@@ -162,191 +163,11 @@ struct proc_st *ctmp;
 	return ctmp;
 }
 
-static
-int session_cmd(main_server_st * s, struct proc_st *proc, const uint8_t *cookie, unsigned cookie_size)
-{
-	int sd, ret, e;
-	SecAuthSessionMsg ireq = SEC_AUTH_SESSION_MSG__INIT;
-	SecAuthSessionReplyMsg *msg = NULL;
-	unsigned type, i;
-	PROTOBUF_ALLOCATOR(pa, proc);
-
-	if (cookie)
-		type = SM_CMD_AUTH_SESSION_OPEN;
-	else
-		type = SM_CMD_AUTH_SESSION_CLOSE;
-
-	sd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sd == -1) {
-		e = errno;
-		mslog(s, proc, LOG_ERR, "error opening unix socket (for sec-mod) %s",
-		      strerror(e));
-		return -1;
-	}
-
-	ret =
-	    connect(sd, (struct sockaddr *)&s->secmod_addr,
-		    s->secmod_addr_len);
-	if (ret < 0) {
-		e = errno;
-		close(sd);
-		mslog(s, proc, LOG_ERR,
-		      "error connecting to sec-mod socket '%s': %s",
-		      s->secmod_addr.sun_path, strerror(e));
-		return -1;
-	}
-
-	ireq.uptime = time(0)-proc->conn_time;
-	ireq.has_uptime = 1;
-	ireq.bytes_in = proc->bytes_in;
-	ireq.has_bytes_in = 1;
-	ireq.bytes_out = proc->bytes_out;
-	ireq.has_bytes_out = 1;
-	ireq.sid.data = proc->sid;
-	ireq.sid.len = sizeof(proc->sid);
-
-	if (cookie) {
-		ireq.cookie.data = (void*)cookie;
-		ireq.cookie.len = cookie_size;
-		ireq.has_cookie = 1;
-	}
-
-	mslog(s, proc, LOG_DEBUG, "sending msg %s to sec-mod", cmd_request_to_str(type));
-
-	ret = send_msg(proc, sd, type,
-		&ireq, (pack_size_func)sec_auth_session_msg__get_packed_size,
-		(pack_func)sec_auth_session_msg__pack);
-	if (ret < 0) {
-		close(sd);
-		mslog(s, proc, LOG_ERR,
-		      "error sending message to sec-mod socket '%s'",
-		      s->secmod_addr.sun_path);
-		return -1;
-	}
-
-	if (type == SM_CMD_AUTH_SESSION_OPEN) {
-		ret = recv_msg(proc, sd, SM_CMD_AUTH_SESSION_REPLY,
-		       (void *)&msg, (unpack_func) sec_auth_session_reply_msg__unpack);
-		close(sd);
-		if (ret < 0) {
-			mslog(s, proc, LOG_ERR, "error receiving auth reply message");
-			return ret;
-		}
-
-		if (msg->reply != AUTH__REP__OK) {
-			mslog(s, proc, LOG_INFO, "could not initiate session for '%s'", proc->username);
-			return -1;
-		}
-
-		/* fill in group_cfg_st */
-		if (msg->has_no_udp)
-			proc->config.no_udp = msg->no_udp;
-
-		if (msg->has_deny_roaming)
-			proc->config.deny_roaming = msg->deny_roaming;
-
-		if (msg->has_require_cert)
-			proc->config.require_cert = msg->require_cert;
-
-		if (msg->has_ipv6_prefix)
-			proc->config.ipv6_prefix = msg->ipv6_prefix;
-
-		if (msg->rx_per_sec)
-			proc->config.rx_per_sec = msg->rx_per_sec;
-		if (msg->tx_per_sec)
-			proc->config.tx_per_sec = msg->tx_per_sec;
-
-		if (msg->net_priority)
-			proc->config.net_priority = msg->net_priority;
-
-		if (msg->ipv4_net) {
-			proc->config.ipv4_network = talloc_strdup(proc, msg->ipv4_net);
-		}
-		if (msg->ipv4_netmask) {
-			proc->config.ipv4_netmask = talloc_strdup(proc, msg->ipv4_netmask);
-		}
-		if (msg->ipv6_net) {
-			proc->config.ipv6_network = talloc_strdup(proc, msg->ipv6_net);
-		}
-
-		if (msg->cgroup) {
-			proc->config.cgroup = talloc_strdup(proc, msg->cgroup);
-		}
-
-		if (msg->xml_config_file) {
-			proc->config.xml_config_file = talloc_strdup(proc, msg->xml_config_file);
-		}
-
-		if (msg->explicit_ipv4) {
-			proc->config.explicit_ipv4 = talloc_strdup(proc, msg->explicit_ipv4);
-		}
-
-		if (msg->explicit_ipv6) {
-			proc->config.explicit_ipv6 = talloc_strdup(proc, msg->explicit_ipv6);
-		}
-
-		if (msg->n_routes > 0) {
-			proc->config.routes = talloc_size(proc, sizeof(char*)*msg->n_routes);
-			for (i=0;i<msg->n_routes;i++) {
-				proc->config.routes[i] = talloc_strdup(proc, msg->routes[i]);
-			}
-			proc->config.routes_size = msg->n_routes;
-		}
-
-		if (msg->n_no_routes > 0) {
-			proc->config.no_routes = talloc_size(proc, sizeof(char*)*msg->n_no_routes);
-			for (i=0;i<msg->n_no_routes;i++) {
-				proc->config.no_routes[i] = talloc_strdup(proc, msg->no_routes[i]);
-			}
-			proc->config.no_routes_size = msg->n_no_routes;
-		}
-
-		if (msg->n_iroutes > 0) {
-			proc->config.iroutes = talloc_size(proc, sizeof(char*)*msg->n_iroutes);
-			for (i=0;i<msg->n_iroutes;i++) {
-				proc->config.iroutes[i] = talloc_strdup(proc, msg->iroutes[i]);
-			}
-			proc->config.iroutes_size = msg->n_iroutes;
-		}
-
-		if (msg->n_dns > 0) {
-			proc->config.dns = talloc_size(proc, sizeof(char*)*msg->n_dns);
-			for (i=0;i<msg->n_dns;i++) {
-				proc->config.dns[i] = talloc_strdup(proc, msg->dns[i]);
-			}
-			proc->config.dns_size = msg->n_dns;
-		}
-
-		if (msg->n_nbns > 0) {
-			proc->config.nbns = talloc_size(proc, sizeof(char*)*msg->n_nbns);
-			for (i=0;i<msg->n_nbns;i++) {
-				proc->config.nbns[i] = talloc_strdup(proc, msg->nbns[i]);
-			}
-			proc->config.nbns_size = msg->n_nbns;
-		}
-		sec_auth_session_reply_msg__free_unpacked(msg, &pa);
-	} else {
-		close(sd);
-	}
-
-	return 0;
-}
-
-int session_open(main_server_st * s, struct proc_st *proc, const uint8_t *cookie, unsigned cookie_size)
-{
-	return session_cmd(s, proc, cookie, cookie_size);
-}
-
-int session_close(main_server_st * s, struct proc_st *proc)
-{
-	return session_cmd(s, proc, NULL, 0);
-}
-
 /* k: whether to kill the process
  */
 void remove_proc(main_server_st * s, struct proc_st *proc, unsigned k)
 {
-	mslog(s, proc, LOG_DEBUG, "removing client '%s' with id '%d'", proc->username, (int)proc->pid);
+	mslog(s, proc, LOG_INFO, "user '%s' disconnected", proc->username);
 
 	list_del(&proc->list);
 	s->active_clients--;
@@ -354,14 +175,14 @@ void remove_proc(main_server_st * s, struct proc_st *proc, unsigned k)
 	if (k && proc->pid != -1 && proc->pid != 0)
 		kill(proc->pid, SIGTERM);
 
-	remove_from_script_list(s, proc);
-	if (proc->status == PS_AUTH_COMPLETED) {
-		user_disconnected(s, proc);
-	}
-
 	/* close any pending sessions */
 	if (proc->active_sid) {
 		session_close(s, proc);
+	}
+
+	remove_from_script_list(s, proc);
+	if (proc->status == PS_AUTH_COMPLETED) {
+		user_disconnected(s, proc);
 	}
 
 	/* close the intercomm fd */
@@ -503,7 +324,7 @@ int handle_commands(main_server_st * s, struct proc_st *proc)
 	}
 
 	if (ret == 0) {
-		mslog(s, proc, LOG_ERR, "command socket closed");
+		mslog(s, proc, LOG_DEBUG, "command socket closed");
 		return ERR_WORKER_TERMINATED;
 	}
 
@@ -532,6 +353,45 @@ int handle_commands(main_server_st * s, struct proc_st *proc)
 	}
 
 	switch (cmd) {
+	case CMD_BAN_IP:{
+			BanIpMsg *tmsg;
+			BanIpReplyMsg reply = BAN_IP_REPLY_MSG__INIT;
+
+			tmsg = ban_ip_msg__unpack(&pa, raw_len, raw);
+			if (tmsg == NULL) {
+				mslog(s, NULL, LOG_ERR, "error unpacking sec-mod data");
+				ret = ERR_BAD_COMMAND;
+				goto cleanup;
+			}
+
+			ret = add_ip_to_ban_list(s, tmsg->ip, tmsg->score);
+
+			ban_ip_msg__free_unpacked(tmsg, &pa);
+
+			if (ret < 0) {
+				reply.reply =
+				    AUTH__REP__FAILED;
+			} else {
+				reply.reply =
+				    AUTH__REP__OK;
+			}
+
+			ret =
+			    send_msg_to_worker(s, NULL, CMD_BAN_IP_REPLY, &reply,
+					       (pack_size_func)
+					       ban_ip_reply_msg__get_packed_size,
+					       (pack_func)
+					       ban_ip_reply_msg__pack);
+
+			if (ret < 0) {
+				mslog(s, NULL, LOG_ERR,
+				      "could not send reply cmd %d.",
+				      (unsigned)cmd);
+				ret = ERR_BAD_COMMAND;
+				goto cleanup;
+			}
+		}
+		break;
 	case CMD_TUN_MTU:{
 			TunMtuMsg *tmsg;
 
@@ -552,30 +412,6 @@ int handle_commands(main_server_st * s, struct proc_st *proc)
 			set_tun_mtu(s, proc, tmsg->mtu);
 
 			tun_mtu_msg__free_unpacked(tmsg, &pa);
-		}
-
-		break;
-	case CMD_CLI_STATS:{
-			CliStatsMsg *tmsg;
-
-			if (proc->status != PS_AUTH_COMPLETED) {
-				mslog(s, proc, LOG_ERR,
-				      "received CLI STATS in unauthenticated state.");
-				ret = ERR_BAD_COMMAND;
-				goto cleanup;
-			}
-
-			tmsg = cli_stats_msg__unpack(&pa, raw_len, raw);
-			if (tmsg == NULL) {
-				mslog(s, proc, LOG_ERR, "error unpacking data");
-				ret = ERR_BAD_COMMAND;
-				goto cleanup;
-			}
-
-			proc->bytes_in = tmsg->bytes_in;
-			proc->bytes_out = tmsg->bytes_out;
-
-			cli_stats_msg__free_unpacked(tmsg, &pa);
 		}
 
 		break;
@@ -758,23 +594,31 @@ int handle_commands(main_server_st * s, struct proc_st *proc)
 	return ret;
 }
 
-void run_sec_mod(main_server_st * s)
+/* Returns a file descriptor to be used for communication with sec-mod
+ */
+int run_sec_mod(main_server_st * s)
 {
-	int e;
+	int e, fd[2], ret;
 	pid_t pid;
 	const char *p;
 
 	/* make socket name */
 	snprintf(s->socket_file, sizeof(s->socket_file), "%s.%u",
-		 s->config->socket_file_prefix, (unsigned)getpid());
+		 s->perm_config->socket_file_prefix, (unsigned)getpid());
 
-	if (s->config->chroot_dir != NULL) {
+	if (s->perm_config->chroot_dir != NULL) {
 		snprintf(s->full_socket_file, sizeof(s->full_socket_file), "%s/%s",
-			 s->config->chroot_dir, s->socket_file);
+			 s->perm_config->chroot_dir, s->socket_file);
 	} else {
 		strlcpy(s->full_socket_file, s->socket_file, sizeof(s->full_socket_file));
 	}
 	p = s->full_socket_file;
+
+	ret = socketpair(AF_UNIX, SOCK_STREAM, 0, fd);
+	if (ret < 0) {
+		mslog(s, NULL, LOG_ERR, "error creating sec-mod command socket");
+		exit(1);
+	}
 
 	pid = fork();
 	if (pid == 0) {		/* child */
@@ -787,11 +631,13 @@ void run_sec_mod(main_server_st * s)
 		malloc_trim(0);
 #endif
 		setproctitle(PACKAGE_NAME "-secmod");
-
-		sec_mod_server(s->main_pool, s->config, p, s->cookie_key);
+		close(fd[1]);
+		sec_mod_server(s->main_pool, s->perm_config, p, s->cookie_key, fd[0]);
 		exit(0);
 	} else if (pid > 0) {	/* parent */
+		close(fd[0]);
 		s->sec_mod_pid = pid;
+		return fd[1];
 	} else {
 		e = errno;
 		mslog(s, NULL, LOG_ERR, "error in fork(): %s", strerror(e));

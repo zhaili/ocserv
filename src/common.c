@@ -57,11 +57,15 @@ static char tmp[32];
 		return "terminate";
 	case CMD_SESSION_INFO:
 		return "session info";
-	case CMD_CLI_STATS:
-		return "cli stats";
+	case CMD_BAN_IP:
+		return "ban IP";
+	case CMD_BAN_IP_REPLY:
+		return "ban IP reply";
 
 	case SM_CMD_CLI_STATS:
 		return "sm: cli stats";
+	case SM_CMD_AUTH_CLI_STATS:
+		return "sm: auth cli stats";
 	case SM_CMD_AUTH_INIT:
 		return "sm: auth init";
 	case SM_CMD_AUTH_CONT:
@@ -76,6 +80,10 @@ static char tmp[32];
 		return "sm: session close";
 	case SM_CMD_AUTH_SESSION_OPEN:
 		return "sm: session open";
+	case SM_CMD_AUTH_BAN_IP:
+		return "sm: ban IP";
+	case SM_CMD_AUTH_BAN_IP_REPLY:
+		return "sm: ban IP reply";
 	default:
 		snprintf(tmp, sizeof(tmp), "unknown (%u)", _cmd);
 		return tmp;
@@ -306,7 +314,9 @@ int send_socket_msg(void *pool, int fd, uint8_t cmd,
 		memcpy(CMSG_DATA(cmptr), &socketfd, sizeof(int));
 	}
 
-	ret = sendmsg(fd, &hdr, 0);
+	do {
+		ret = sendmsg(fd, &hdr, 0);
+	} while(ret == -1 && errno == EINTR);
 	if (ret < 0) {
 		int e = errno;
 		syslog(LOG_ERR, "%s:%u: %s", __FILE__, __LINE__, strerror(e));
@@ -457,7 +467,9 @@ struct msghdr mh = {
 	.msg_controllen = sizeof(cmbuf),
 };
 
-	ret = recvmsg(sockfd, &mh, 0);
+	do {
+		ret = recvmsg(sockfd, &mh, 0);
+	} while (ret == -1 && errno == EINTR);
 	if (ret < 0) {
 		return -1;
 	}
@@ -466,7 +478,7 @@ struct msghdr mh = {
 	for (cmsg = CMSG_FIRSTHDR(&mh); cmsg != NULL; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
 #if defined(IP_PKTINFO)
 		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
-			struct in_pktinfo *pi = CMSG_DATA(cmsg);
+			struct in_pktinfo *pi = (void*)CMSG_DATA(cmsg);
 			struct sockaddr_in *a = (struct sockaddr_in*)our_addr;
 
 			if (*our_addrlen < sizeof(struct sockaddr_in))
@@ -480,7 +492,7 @@ struct msghdr mh = {
 		}
 #elif defined(IP_RECVDSTADDR)
 		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_RECVDSTADDR) {
-			struct in_addr *pi = CMSG_DATA(cmsg);
+			struct in_addr *pi = (void*)CMSG_DATA(cmsg);
 			struct sockaddr_in *a = (struct sockaddr_in*)our_addr;
 
 			if (*our_addrlen < sizeof(struct sockaddr_in))
@@ -495,7 +507,7 @@ struct msghdr mh = {
 #endif
 #ifdef IPV6_RECVPKTINFO
 		if (cmsg->cmsg_level != IPPROTO_IPV6 || cmsg->cmsg_type != IPV6_RECVPKTINFO) {
-			struct in6_pktinfo *pi = CMSG_DATA(cmsg);
+			struct in6_pktinfo *pi = (void*)CMSG_DATA(cmsg);
 			struct sockaddr_in6 *a = (struct sockaddr_in6*)our_addr;
 
 			if (*our_addrlen < sizeof(struct sockaddr_in6))

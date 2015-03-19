@@ -24,6 +24,8 @@ typedef struct _TunMtuMsg TunMtuMsg;
 typedef struct _CliStatsMsg CliStatsMsg;
 typedef struct _UdpFdMsg UdpFdMsg;
 typedef struct _SessionInfoMsg SessionInfoMsg;
+typedef struct _BanIpMsg BanIpMsg;
+typedef struct _BanIpReplyMsg BanIpReplyMsg;
 typedef struct _SecAuthInitMsg SecAuthInitMsg;
 typedef struct _SecAuthContMsg SecAuthContMsg;
 typedef struct _SecAuthReplyMsg SecAuthReplyMsg;
@@ -153,10 +155,13 @@ struct  _CliStatsMsg
   protobuf_c_boolean has_sid;
   ProtobufCBinaryData sid;
   uint32_t uptime;
+  char *remote_ip;
+  char *ipv4;
+  char *ipv6;
 };
 #define CLI_STATS_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cli_stats_msg__descriptor) \
-    , 0, 0, 0,{0,NULL}, 0 }
+    , 0, 0, 0,{0,NULL}, 0, NULL, NULL, NULL }
 
 
 struct  _UdpFdMsg
@@ -185,6 +190,27 @@ struct  _SessionInfoMsg
     , NULL, NULL, NULL, NULL, NULL }
 
 
+struct  _BanIpMsg
+{
+  ProtobufCMessage base;
+  char *ip;
+  uint32_t score;
+};
+#define BAN_IP_MSG__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&ban_ip_msg__descriptor) \
+    , NULL, 0 }
+
+
+struct  _BanIpReplyMsg
+{
+  ProtobufCMessage base;
+  AUTHREP reply;
+};
+#define BAN_IP_REPLY_MSG__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&ban_ip_reply_msg__descriptor) \
+    , 0 }
+
+
 struct  _SecAuthInitMsg
 {
   ProtobufCMessage base;
@@ -196,10 +222,11 @@ struct  _SecAuthInitMsg
   char **cert_group_names;
   char *hostname;
   char *ip;
+  uint32_t auth_type;
 };
 #define SEC_AUTH_INIT_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_init_msg__descriptor) \
-    , 0, NULL, NULL, NULL, 0,NULL, NULL, NULL }
+    , 0, NULL, NULL, NULL, 0,NULL, NULL, NULL, 0u }
 
 
 struct  _SecAuthContMsg
@@ -287,8 +314,6 @@ struct  _SecAuthSessionReplyMsg
   protobuf_c_boolean no_udp;
   protobuf_c_boolean has_deny_roaming;
   protobuf_c_boolean deny_roaming;
-  protobuf_c_boolean has_require_cert;
-  protobuf_c_boolean require_cert;
   size_t n_routes;
   char **routes;
   size_t n_iroutes;
@@ -317,7 +342,7 @@ struct  _SecAuthSessionReplyMsg
 };
 #define SEC_AUTH_SESSION_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_reply_msg__descriptor) \
-    , 0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL, 0,NULL }
+    , 0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL, 0,NULL }
 
 
 /* AuthCookieRequestMsg methods */
@@ -491,6 +516,44 @@ SessionInfoMsg *
 void   session_info_msg__free_unpacked
                      (SessionInfoMsg *message,
                       ProtobufCAllocator *allocator);
+/* BanIpMsg methods */
+void   ban_ip_msg__init
+                     (BanIpMsg         *message);
+size_t ban_ip_msg__get_packed_size
+                     (const BanIpMsg   *message);
+size_t ban_ip_msg__pack
+                     (const BanIpMsg   *message,
+                      uint8_t             *out);
+size_t ban_ip_msg__pack_to_buffer
+                     (const BanIpMsg   *message,
+                      ProtobufCBuffer     *buffer);
+BanIpMsg *
+       ban_ip_msg__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   ban_ip_msg__free_unpacked
+                     (BanIpMsg *message,
+                      ProtobufCAllocator *allocator);
+/* BanIpReplyMsg methods */
+void   ban_ip_reply_msg__init
+                     (BanIpReplyMsg         *message);
+size_t ban_ip_reply_msg__get_packed_size
+                     (const BanIpReplyMsg   *message);
+size_t ban_ip_reply_msg__pack
+                     (const BanIpReplyMsg   *message,
+                      uint8_t             *out);
+size_t ban_ip_reply_msg__pack_to_buffer
+                     (const BanIpReplyMsg   *message,
+                      ProtobufCBuffer     *buffer);
+BanIpReplyMsg *
+       ban_ip_reply_msg__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   ban_ip_reply_msg__free_unpacked
+                     (BanIpReplyMsg *message,
+                      ProtobufCAllocator *allocator);
 /* SecAuthInitMsg methods */
 void   sec_auth_init_msg__init
                      (SecAuthInitMsg         *message);
@@ -653,6 +716,12 @@ typedef void (*UdpFdMsg_Closure)
 typedef void (*SessionInfoMsg_Closure)
                  (const SessionInfoMsg *message,
                   void *closure_data);
+typedef void (*BanIpMsg_Closure)
+                 (const BanIpMsg *message,
+                  void *closure_data);
+typedef void (*BanIpReplyMsg_Closure)
+                 (const BanIpReplyMsg *message,
+                  void *closure_data);
 typedef void (*SecAuthInitMsg_Closure)
                  (const SecAuthInitMsg *message,
                   void *closure_data);
@@ -691,6 +760,8 @@ extern const ProtobufCMessageDescriptor tun_mtu_msg__descriptor;
 extern const ProtobufCMessageDescriptor cli_stats_msg__descriptor;
 extern const ProtobufCMessageDescriptor udp_fd_msg__descriptor;
 extern const ProtobufCMessageDescriptor session_info_msg__descriptor;
+extern const ProtobufCMessageDescriptor ban_ip_msg__descriptor;
+extern const ProtobufCMessageDescriptor ban_ip_reply_msg__descriptor;
 extern const ProtobufCMessageDescriptor sec_auth_init_msg__descriptor;
 extern const ProtobufCMessageDescriptor sec_auth_cont_msg__descriptor;
 extern const ProtobufCMessageDescriptor sec_auth_reply_msg__descriptor;

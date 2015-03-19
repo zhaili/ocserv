@@ -35,7 +35,7 @@
 #line 6 "http-heads.gperf"
 struct http_headers_st { const char *name; unsigned id; };
 
-#define TOTAL_KEYWORDS 12
+#define TOTAL_KEYWORDS 14
 #define MIN_WORD_LENGTH 6
 #define MAX_WORD_LENGTH 34
 #define MIN_HASH_VALUE 6
@@ -62,11 +62,11 @@ hash (register const char *str, register unsigned int len)
       36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
       36, 36, 36, 36, 36,  0, 15,  5,  0, 36,
        0, 36, 10, 36, 36, 36, 36,  5, 36, 36,
-      36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
+      36, 36, 36,  0, 36, 36, 36, 36, 36, 36,
       36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
       36,  5, 36, 36, 36,  0, 36, 36, 36, 36,
-       0,  0, 36, 36, 36, 36, 36, 36, 36, 36,
-      36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
+       0,  0, 36, 36,  0, 36,  0, 36, 36, 36,
+      36, 36,  0, 36, 36, 36, 36, 36, 36, 36,
       36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
       36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
       36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
@@ -107,7 +107,12 @@ static const struct http_headers_st wordlist[] =
     {""}, {""}, {""},
 #line 12 "http-heads.gperf"
     {"Connection", HEADER_CONNECTION},
-    {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""},
+    {""}, {""},
+#line 21 "http-heads.gperf"
+    {"Authorization", HEADER_AUTHORIZATION},
+    {""}, {""}, {""}, {""}, {""},
+#line 20 "http-heads.gperf"
+    {"X-Support-HTTP-Auth", HEADER_SUPPORT_SPNEGO},
 #line 9 "http-heads.gperf"
     {"User-Agent", HEADER_USER_AGENT},
     {""},

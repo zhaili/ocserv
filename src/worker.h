@@ -34,6 +34,7 @@
 #include <common.h>
 #include <str.h>
 #include <worker-bandwidth.h>
+#include <stdbool.h>
 #include <sys/un.h>
 #include <sys/uio.h>
 
@@ -58,7 +59,9 @@ enum {
 	HEADER_FULL_IPV6,
 	HEADER_USER_AGENT,
 	HEADER_CSTP_ENCODING,
-	HEADER_DTLS_ENCODING
+	HEADER_DTLS_ENCODING,
+	HEADER_SUPPORT_SPNEGO,
+	HEADER_AUTHORIZATION
 };
 
 enum {
@@ -101,6 +104,12 @@ typedef struct dtls_ciphersuite_st {
 	unsigned gnutls_version;
 } dtls_ciphersuite_st;
 
+#ifdef HAVE_GSSAPI
+# include <libtasn1.h>
+/* main has initialized that for us */
+extern ASN1_TYPE _kkdcp_pkix1_asn;
+#endif
+
 struct http_req_st {
 	char url[256];
 
@@ -114,7 +123,8 @@ struct http_req_st {
 
 	unsigned int next_header;
 
-	unsigned int is_mobile;
+	bool is_mobile;
+	bool spnego_set;
 
 	unsigned char master_secret[TLS_MASTER_SIZE];
 	unsigned int master_secret_set;
@@ -130,6 +140,9 @@ struct http_req_st {
 	
 	unsigned no_ipv4;
 	unsigned no_ipv6;
+
+	char *authorization;
+	unsigned authorization_size;
 };
 
 typedef struct dtls_transport_ptr {
@@ -143,6 +156,7 @@ typedef struct worker_st {
 	gnutls_session_t session;
 	gnutls_session_t dtls_session;
 
+	auth_struct_st *selected_auth;
 	const compression_method_st *dtls_selected_comp;
 	const compression_method_st *cstp_selected_comp;
 
@@ -158,6 +172,8 @@ typedef struct worker_st {
 	
 	http_parser *parser;
 	struct cfg_st *config;
+	struct perm_cfg_st *perm_config;
+
 	unsigned int auth_state; /* S_AUTH */
 
 	struct sockaddr_un secmod_addr;	/* sec-mod unix address */
@@ -165,6 +181,8 @@ typedef struct worker_st {
 
 	struct sockaddr_storage remote_addr;	/* peer's address */
 	socklen_t remote_addr_len;
+	char remote_ip_str[MAX_IP_STR];
+
 	int proto; /* AF_INET or AF_INET6 */
 
 	time_t session_start_time;
@@ -234,6 +252,9 @@ typedef struct worker_st {
 	unsigned cert_auth_ok;
 	int tun_fd;
 
+	/* ban points to be sent on exit */
+	unsigned ban_points;
+
 	/* tun device stats */
 	uint64_t tun_bytes_in;
 	uint64_t tun_bytes_out;
@@ -263,6 +284,7 @@ int auth_user_deinit(worker_st *ws);
 
 int get_auth_handler(worker_st *server, unsigned http_ver);
 int post_auth_handler(worker_st *server, unsigned http_ver);
+int post_kkdcp_handler(worker_st *server, unsigned http_ver);
 
 int get_empty_handler(worker_st *server, unsigned http_ver);
 int get_config_handler(worker_st *ws, unsigned http_ver);
@@ -299,7 +321,7 @@ void http_req_reset(worker_st * ws);
 void http_req_init(worker_st * ws);
 
 url_handler_fn http_get_url_handler(const char *url);
-url_handler_fn http_post_url_handler(const char *url);
+url_handler_fn http_post_url_handler(worker_st * ws, const char *url);
 
 int complete_vpn_info(worker_st * ws,
                     struct vpn_st* vinfo);
@@ -309,6 +331,12 @@ int send_tun_mtu(worker_st *ws, unsigned int mtu);
 int handle_worker_commands(struct worker_st *ws);
 int disable_system_calls(struct worker_st *ws);
 void ocsigaltstack(struct worker_st *ws);
+
+void exit_worker(worker_st * ws);
+
+int ws_switch_auth_to(struct worker_st *ws, unsigned auth);
+void ws_disable_auth(struct worker_st *ws, unsigned auth);
+void ws_add_score_to_ip(worker_st *ws, unsigned points, unsigned final);
 
 int connect_to_secmod(worker_st * ws);
 inline static

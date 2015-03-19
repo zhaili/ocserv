@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.9.2], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.10.1], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -291,29 +291,6 @@ AC_LIB_HAVE_LINKFLAGS(seccomp,, [#include <seccomp.h>
  fi
 fi
 
-AC_ARG_ENABLE(linux-namespaces,
-  AS_HELP_STRING([--enable-linux-namespaces], [enable support for namespaces (containers) in Linux]),
-    linux_ns_enabled=$enableval, linux_ns_enabled=no)
-
-if [ test "$linux_ns_enabled" = "yes" ];then
-AC_MSG_CHECKING([for Linux namespaces])
-dnl We use Linux namespaces only in the platforms clone() works as expected
-AC_LINK_IFELSE([AC_LANG_PROGRAM([
-		   #include <sched.h>
-		   #include <linux/sched.h>],[
-		   #if defined(__i386__) || defined(__arm__) || defined(__x86_64__) || defined(__mips__)
-		   unshare(CLONE_NEWPID|CLONE_NEWIPC);
-		   #else
-		   # error 1
-		   #endif])],
-		  [AC_MSG_RESULT(yes)
-	  	   AC_DEFINE([ENABLE_LINUX_NS], 1, [Enable Linux namespaces support])
-		   linux_ns_enabled=yes],
-		  [AC_MSG_RESULT(no)
-		   linux_ns_enabled=no
-])
-fi
-
 AC_ARG_ENABLE(systemd,
   AS_HELP_STRING([--disable-systemd], [disable systemd support]),
     systemd_enabled=$enableval, systemd_enabled=yes)
@@ -371,6 +348,18 @@ LIBS="$oldlibs"
 fi
 AM_CONDITIONAL(LOCAL_HTTP_PARSER, test "x$with_local_http_parser" != xno)
 
+dnl compression
+AC_ARG_ENABLE(compression,
+  AS_HELP_STRING([--disable-compression], [Disable compression support]),
+  enable_compression=$enableval,
+  enable_compression=yes)
+
+if test "$enable_compression" = yes;then
+AC_DEFINE([ENABLE_COMPRESSION], [], [compression enabled])
+fi
+
+AM_CONDITIONAL(ENABLE_COMPRESSION, test "$enable_compression" = yes)
+
 dnl LZ4
 AC_ARG_WITH(lz4,
   AS_HELP_STRING([--without-lz4], [disable support for LZ4 compression]),
@@ -378,7 +367,8 @@ AC_ARG_WITH(lz4,
   test_for_lz4=yes)
 
 enable_lz4=no
-if test "$test_for_lz4" = yes;then
+
+if test "$test_for_lz4" = yes && test "$enable_compression" = yes;then
 PKG_CHECK_MODULES([LIBLZ4], [liblz4], [
 enable_lz4=yes
 AC_DEFINE([HAVE_LZ4], [], [LZ4 was found])
@@ -390,6 +380,30 @@ AC_DEFINE([HAVE_LZ4], [], [LZ4 was found])
 *** ]])
 ])
 fi
+
+dnl GSSAPI
+AC_ARG_WITH(gssapi,
+  AS_HELP_STRING([--without-gssapi], [disable support for GSSAPI authentication]),
+  test_for_gssapi=$withval,
+  test_for_gssapi=yes)
+
+enable_gssapi=no
+if test "$test_for_gssapi" = yes;then
+PKG_CHECK_MODULES([LIBKRB5], [krb5-gssapi], [
+enable_gssapi=yes
+AC_DEFINE([HAVE_GSSAPI], [], [GSSAPI was found])
+PKG_CHECK_MODULES(LIBTASN1, [libtasn1 >= 3.9])
+],
+[
+	AC_MSG_WARN([[
+***
+*** gssapi not found. Will disable gssapi (and Kerberos) support.
+*** ]])
+])
+
+fi
+
+AM_CONDITIONAL(HAVE_GSSAPI, test "$enable_gssapi" = yes)
 
 dnl needed in the included PCL
 AC_C_VOLATILE
@@ -453,6 +467,7 @@ AC_CONFIG_FILES([
 	doc/Makefile
 	gl/Makefile
 	tests/docker-ocserv/Makefile
+	tests/docker-kerberos/Makefile
 	tests/Makefile
 ])
 AC_OUTPUT
@@ -467,11 +482,13 @@ Summary of build options:
   
   PAM auth backend:     ${pam_enabled}
   Radius auth backend:  ${radius_enabled}
+  GSSAPI auth backend:  ${enable_gssapi}
   Anyconnect compat:    ${anyconnect_enabled}
   TCP wrappers:         ${libwrap_enabled}
   systemd:              ${systemd_enabled}
   (socket activation)
   seccomp:              ${seccomp_enabled}
+  Compression:          ${enable_compression}
   LZ4 compression:      ${enable_lz4}
   readline:             ${have_readline}
   libnl3:               ${have_libnl3}
@@ -486,7 +503,6 @@ Summary of build options:
 AC_MSG_NOTICE([
 
 Experimental (not recommended) options:
-  Linux namespaces:     ${linux_ns_enabled}
   dbus:                 ${dbus_enabled}
 ])
 

@@ -24,6 +24,7 @@
 #include <syslog.h>
 #include <vpn.h>
 #include "pam.h"
+#include "cfg.h"
 #include <sec-mod-auth.h>
 
 #ifdef HAVE_PAM
@@ -42,8 +43,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
-#include <pcl.h>
-#include <str.h>
+#include "auth/pam.h"
 
 #define PAM_STACK_SIZE (96*1024)
 
@@ -53,20 +53,6 @@ enum {
 	PAM_S_INIT,
 	PAM_S_WAIT_FOR_PASS,
 	PAM_S_COMPLETE,
-};
-
-struct pam_ctx_st {
-	char password[MAX_PASSWORD_SIZE];
-	char username[MAX_USERNAME_SIZE];
-	pam_handle_t * ph;
-	struct pam_conv dc;
-	coroutine_t cr;
-	int cr_ret;
-	unsigned changing; /* whether we are entering a new password */
-	str_st msg;
-	unsigned sent_msg;
-	struct pam_response *replies; /* for safety */
-	unsigned state; /* PAM_S_ */
 };
 
 static int ocserv_conv(int msg_size, const struct pam_message **msg, 
@@ -155,13 +141,16 @@ wait:
 	}
 }
 
-static int pam_auth_init(void** ctx, void *pool, const char* user, const char* ip, void* additional)
+static int pam_auth_init(void** ctx, void *pool, const char* user, const char* ip)
 {
 int pret;
 struct pam_ctx_st * pctx;
 
-	if (user == NULL)
-		return -1;
+	if (user == NULL || user[0] == 0) {
+		syslog(LOG_AUTH,
+		       "pam-auth: no username present");
+		return ERR_AUTH_FAIL;
+	}
 
 	pctx = talloc_zero(pool, struct pam_ctx_st);
 	if (pctx == NULL)
@@ -188,7 +177,7 @@ struct pam_ctx_st * pctx;
 
 	*ctx = pctx;
 	
-	return 0;
+	return ERR_AUTH_CONTINUE;
 
 fail2:
 	pam_end(pctx->ph, pret);
@@ -197,14 +186,13 @@ fail1:
 	return -1;
 }
 
-static int pam_auth_msg(void* ctx, char* msg, size_t msg_size)
+static int pam_auth_msg(void* ctx, void *pool, char** msg)
 {
 struct pam_ctx_st * pctx = ctx;
-int size;
 
 	if (pctx->state != PAM_S_INIT && pctx->state != PAM_S_WAIT_FOR_PASS) {
-		syslog(LOG_AUTH, "PAM-auth: conversation in wrong state (%d)", pctx->state);
-		return ERR_AUTH_FAIL;
+		*msg = NULL;
+		return 0;
 	}
 
 	if (pctx->state == PAM_S_INIT) {
@@ -221,13 +209,14 @@ int size;
 	if (msg != NULL) {
 		if (pctx->msg.length == 0)
                         if (pctx->changing)
-				strlcpy(msg, "Please enter the new password.", msg_size);
+				*msg = talloc_strdup(pool, "Please enter the new password.");
                         else
-				strlcpy(msg, "Please enter your password.", msg_size);
+				*msg = talloc_strdup(pool, "Please enter your password.");
 		else {
-			size = MIN(msg_size-1, pctx->msg.length);
-			memcpy(msg, pctx->msg.data, size);
-			msg[size] = 0;
+			if (str_append_data(&pctx->msg, "\0", 1) < 0)
+				return -1;
+
+			*msg = talloc_strdup(pool, (char*)pctx->msg.data);
 		}
 	}
 
@@ -350,52 +339,14 @@ struct pam_ctx_st * pctx = ctx;
 	talloc_free(pctx);
 }
 
-static int pam_auth_open_session(void* ctx, const void *sid, unsigned sid_size)
-{
-struct pam_ctx_st * pctx = ctx;
-int pret;
-
-	if (pctx->cr != NULL) {
-		co_delete(pctx->cr);
-		pctx->cr = NULL;
-	}
-
-	pret = pam_open_session(pctx->ph, PAM_SILENT);
-	if (pret != PAM_SUCCESS) {
-		syslog(LOG_AUTH, "PAM-auth: pam_open_session: %s", pam_strerror(pctx->ph, pret));
-		return -1;
-	}
-
-	return 0;
-}
-
-static void pam_auth_close_session(void* ctx, stats_st *stats)
-{
-struct pam_ctx_st * pctx = ctx;
-int pret;
-
-	pret = pam_close_session(pctx->ph, PAM_SILENT);
-	if (pret != PAM_SUCCESS) {
-		syslog(LOG_AUTH, "PAM-auth: pam_close_session: %s", pam_strerror(pctx->ph, pret));
-	}
-
-	return;
-}
-
 static void pam_group_list(void *pool, void *_additional, char ***groupname, unsigned *groupname_size)
 {
 	struct group *grp;
+	struct pam_cfg_st *config = _additional;
 	gid_t min = 0;
-	char *additional = _additional;
 
-	if (additional != NULL) {
-		if (strstr(additional, "gid-min=") != NULL) {
-			additional += 8;
-			min = atoi(additional);
-		} else {
-			syslog(LOG_INFO, "unknown PAM auth string '%s'", additional);
-		}
-	}
+	if (config)
+		min = config->gid_min;
 
 	setgrent();
 
@@ -427,8 +378,6 @@ const struct auth_mod_st pam_auth_funcs = {
   .auth_pass = pam_auth_pass,
   .auth_group = pam_auth_group,
   .auth_user = pam_auth_user,
-  .open_session = pam_auth_open_session,
-  .close_session = pam_auth_close_session,
   .group_list = pam_group_list
 };
 

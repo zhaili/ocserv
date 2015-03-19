@@ -21,8 +21,8 @@
 /* Define to the number of bits in type 'wint_t'. */
 #undef BITSIZEOF_WINT_T
 
-/* Enable Linux namespaces support */
-#undef ENABLE_LINUX_NS
+/* compression enabled */
+#undef ENABLE_COMPRESSION
 
 /* nls support in libopts */
 #undef ENABLE_NLS
@@ -239,6 +239,9 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
+
+/* GSSAPI was found */
+#undef HAVE_GSSAPI
 
 /* Define to 1 if the system has the type `int16_t'. */
 #undef HAVE_INT16_T

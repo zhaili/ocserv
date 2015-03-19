@@ -6,8 +6,8 @@ message status_rep
 	required uint32 sec_mod_pid = 3;
 	required uint32 active_clients = 4;
 	required uint32 start_time = 5;
-	required uint32 stored_cookies = 6;
 	required uint32 stored_tls_sessions = 7;
+	required uint32 banned_ips = 8;
 }
 
 message bool_msg
@@ -60,3 +60,21 @@ message id_req
 {
 	required sint32 id = 1;
 }
+
+message ban_info_rep
+{
+	required string ip = 1;
+	required uint32 score = 2;
+	optional uint32 expires = 3;
+}
+
+message ban_list_rep
+{
+	repeated ban_info_rep info = 1;
+}
+
+message unban_req
+{
+	required string ip = 1;
+}
+

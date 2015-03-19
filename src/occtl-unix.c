@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Red Hat
+ * Copyright (C) 2014, 2015 Red Hat
  *
  * Author: Nikos Mavrogiannopoulos
  *
@@ -32,6 +32,7 @@
 #include <occtl.h>
 #include <common.h>
 #include <c-strcase.h>
+#include <arpa/inet.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -50,10 +51,12 @@ static uint8_t msg_map[] = {
         [CTL_CMD_RELOAD] = CTL_CMD_RELOAD_REP,
         [CTL_CMD_STOP] = CTL_CMD_STOP_REP,
         [CTL_CMD_LIST] = CTL_CMD_LIST_REP,
+        [CTL_CMD_LIST_BANNED] = CTL_CMD_LIST_BANNED_REP,
         [CTL_CMD_USER_INFO] = CTL_CMD_LIST_REP,
         [CTL_CMD_ID_INFO] = CTL_CMD_LIST_REP,
         [CTL_CMD_DISCONNECT_NAME] = CTL_CMD_DISCONNECT_NAME_REP,
         [CTL_CMD_DISCONNECT_ID] = CTL_CMD_DISCONNECT_ID_REP,
+        [CTL_CMD_UNBAN_IP] = CTL_CMD_UNBAN_IP_REP,
 };
 
 struct cmd_reply_st {
@@ -229,19 +232,21 @@ int handle_status_cmd(struct unix_ctx *ctx, const char *arg)
 		goto error_status;
 
 	printf("OpenConnect SSL VPN server\n");
-	printf("         Status: %s\n", rep->status != 0 ? "online" : "error");
+	printf("           Status: %s\n", rep->status != 0 ? "online" : "error");
 
 	t = rep->start_time;
 	tm = localtime(&t);
 	strftime(str_since, sizeof(str_since), DATE_TIME_FMT, tm);
-	printf("       Up since: %s\n", str_since);
+	printf("         Up since: %s (", str_since);
+	print_time_ival7(time(0), t, stdout);
+	fputs(")\n", stdout);
 
-	printf("        Clients: %u\n", (unsigned)rep->active_clients);
-	printf("        Cookies: %u\n", (unsigned)rep->stored_cookies);
-	printf(" TLS DB entries: %u\n", (unsigned)rep->stored_tls_sessions);
+	printf("          Clients: %u\n", (unsigned)rep->active_clients);
+	printf("  IPs in ban list: %u\n", (unsigned)rep->banned_ips);
+	printf("   TLS DB entries: %u\n", (unsigned)rep->stored_tls_sessions);
 	printf("\n");
-	printf("     Server PID: %u\n", (unsigned)rep->pid);
-	printf("    Sec-mod PID: %u\n", (unsigned)rep->sec_mod_pid);
+	printf("       Server PID: %u\n", (unsigned)rep->pid);
+	printf("      Sec-mod PID: %u\n", (unsigned)rep->sec_mod_pid);
 
 	status_rep__free_unpacked(rep, &pa);
 
@@ -332,6 +337,72 @@ int handle_stop_cmd(struct unix_ctx *ctx, const char *arg)
 	printf("Error scheduling server stop\n");
 	ret = 1;
 	goto cleanup;
+ cleanup:
+	free_reply(&raw);
+
+	return ret;
+}
+
+int handle_unban_ip_cmd(struct unix_ctx *ctx, const char *arg)
+{
+	int ret;
+	struct cmd_reply_st raw;
+	BoolMsg *rep;
+	unsigned status;
+	UnbanReq req = UNBAN_REQ__INIT;
+	char txt[MAX_IP_STR];
+	int af;
+	struct sockaddr_storage st;
+	PROTOBUF_ALLOCATOR(pa, ctx);
+
+	if (arg == NULL || need_help(arg)) {
+		check_cmd_help(rl_line_buffer);
+		return 1;
+	}
+	
+	init_reply(&raw);
+
+	/* convert the IP to the simplest form */
+	if (strchr(arg, ':') != 0) {
+		af = AF_INET6;
+	} else {
+		af = AF_INET;
+	}
+
+	ret = inet_pton(af, arg, &st);
+	if (ret == 1) {
+		inet_ntop(af, &st, txt, sizeof(txt));
+		req.ip = txt;
+	} else {
+		req.ip = (char*)arg;
+	}
+
+	ret = send_cmd(ctx, CTL_CMD_UNBAN_IP, &req, 
+		(pack_size_func)unban_req__get_packed_size, 
+		(pack_func)unban_req__pack, &raw);
+	if (ret < 0) {
+		goto error;
+	}
+
+	rep = bool_msg__unpack(&pa, raw.data_size, raw.data);
+	if (rep == NULL)
+		goto error;
+
+	status = rep->status;
+	bool_msg__free_unpacked(rep, &pa);
+
+	if (status != 0) {
+		printf("IP '%s' was unbanned\n", arg);
+	} else {
+		printf("could not unban IP '%s'\n", arg);
+	}
+
+	ret = 0;
+	goto cleanup;
+
+ error:
+	fprintf(stderr, ERR_SERVER_UNREACHABLE);
+	ret = 1;
  cleanup:
 	free_reply(&raw);
 
@@ -500,7 +571,7 @@ int handle_list_users_cmd(struct unix_ctx *ctx, const char *arg)
 		fprintf(out, "%8d %8s %8s %14s %14s %6s ",
 			(int)rep->user[i]->id, username, groupname, rep->user[i]->ip, vpn_ip, rep->user[i]->tun);
 
-		print_time_ival7(t, out);
+		print_time_ival7(time(0), t, out);
 
 		dtls_ciphersuite = rep->user[i]->dtls_ciphersuite;
 		if (dtls_ciphersuite != NULL && dtls_ciphersuite[0] != 0) {
@@ -530,6 +601,97 @@ int handle_list_users_cmd(struct unix_ctx *ctx, const char *arg)
 	pager_stop(out);
 
 	return ret;
+}
+
+static
+int handle_list_banned_cmd(struct unix_ctx *ctx, const char *arg, unsigned points)
+{
+	int ret;
+	struct cmd_reply_st raw;
+	BanListRep *rep = NULL;
+	unsigned i;
+	char str_since[64];
+	FILE *out;
+	struct tm *tm;
+	time_t t;
+	PROTOBUF_ALLOCATOR(pa, ctx);
+
+	init_reply(&raw);
+
+	ip_entries_clear();
+
+	out = pager_start();
+
+	ret = send_cmd(ctx, CTL_CMD_LIST_BANNED, NULL, NULL, NULL, &raw);
+	if (ret < 0) {
+		goto error;
+	}
+
+	rep = ban_list_rep__unpack(&pa, raw.data_size, raw.data);
+	if (rep == NULL)
+		goto error;
+
+	for (i=0;i<rep->n_info;i++) {
+		if (rep->info[i]->ip == NULL)
+			continue;
+
+		/* add header */
+		if (points == 0) {
+			if (rep->info[i]->has_expires) {
+				t = rep->info[i]->expires;
+				tm = localtime(&t);
+				strftime(str_since, sizeof(str_since), DATE_TIME_FMT, tm);
+			} else {
+				continue;
+			}
+
+			if (i == 0) {
+				fprintf(out, "%14s %14s %30s\n",
+					"IP", "score", "expires");
+			}
+
+			fprintf(out, "%14s %14u %30s (",
+				rep->info[i]->ip, (unsigned)rep->info[i]->score, str_since);
+			print_time_ival7(t, time(0), out);
+			fputs(")\n", out);
+		} else {
+			if (i == 0) {
+				fprintf(out, "%14s %14s\n",
+					"IP", "score");
+			}
+
+			fprintf(out, "%14s %14u\n",
+				rep->info[i]->ip, (unsigned)rep->info[i]->score);
+		}
+
+		ip_entries_add(ctx, rep->info[i]->ip, strlen(rep->info[i]->ip));
+	}
+
+	ret = 0;
+	goto cleanup;
+
+ error:
+	ret = 1;
+	fprintf(stderr, ERR_SERVER_UNREACHABLE);
+
+ cleanup:
+	if (rep != NULL)
+		ban_list_rep__free_unpacked(rep, &pa);
+
+	free_reply(&raw);
+	pager_stop(out);
+
+	return ret;
+}
+
+int handle_list_banned_ips_cmd(struct unix_ctx *ctx, const char *arg)
+{
+	return handle_list_banned_cmd(ctx, arg, 0);
+}
+
+int handle_list_banned_points_cmd(struct unix_ctx *ctx, const char *arg)
+{
+	return handle_list_banned_cmd(ctx, arg, 1);
 }
 
 int print_list_entries(FILE* out, const char* name, char **val, unsigned vsize)
@@ -632,7 +794,7 @@ int common_info_cmd(UserListRep * args)
 			fprintf(out, "\tHostname: %s\n", args->user[i]->hostname);
 
 		fprintf(out, "\tConnected at: %s (", str_since);
-		print_time_ival7(t, out);
+		print_time_ival7(time(0), t, out);
 		fprintf(out, ")\n");
 
 		fprintf(out, "\tTLS ciphersuite: %s\n", args->user[i]->tls_ciphersuite);

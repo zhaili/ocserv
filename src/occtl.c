@@ -51,12 +51,18 @@ static const commands_st commands[] = {
 	      "Disconnect the specified user", 1, 1),
 	ENTRY("disconnect id", "[ID]", handle_disconnect_id_cmd,
 	      "Disconnect the specified ID", 1, 1),
+	ENTRY("unban ip", "[IP]", handle_unban_ip_cmd,
+	      "Unban the specified IP", 1, 1),
 	ENTRY("reload", NULL, handle_reload_cmd,
 	      "Reloads the server configuration", 1, 1),
 	ENTRY("show status", NULL, handle_status_cmd,
 	      "Prints the status of the server", 1, 1),
 	ENTRY("show users", NULL, handle_list_users_cmd,
 	      "Prints the connected users", 1, 1),
+	ENTRY("show ip bans", NULL, handle_list_banned_ips_cmd,
+	      "Prints the banned IP addresses", 1, 1),
+	ENTRY("show ip ban points", NULL, handle_list_banned_points_cmd,
+	      "Prints all the known IP addresses which have points", 1, 1),
 	ENTRY("show user", "[NAME]", handle_show_user_cmd,
 	      "Prints information on the specified user", 1, 1),
 	ENTRY("show id", "[ID]", handle_show_id_cmd,
@@ -115,7 +121,7 @@ unsigned need_help(const char *arg)
 unsigned check_cmd_help(const char *line)
 {
 	unsigned int i;
-	unsigned len = strlen(line);
+	unsigned len = (line!=NULL)?strlen(line):0;
 	unsigned status = 0, tlen;
 
 	while (len > 0 && (line[len - 1] == '?' || whitespace(line[len - 1])))
@@ -430,6 +436,10 @@ static char *command_generator(const char *text, int state)
 					else if (strcmp(arg, "[ID]") == 0)
 						ret =
 						    search_for_id(entries_idx,
+								  text, len);
+					else if (strcmp(arg, "[IP]") == 0)
+						ret =
+						    search_for_ip(entries_idx,
 								  text, len);
 					if (ret != NULL) {
 						entries_idx++;

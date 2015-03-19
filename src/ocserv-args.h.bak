@@ -19,7 +19,7 @@
  * The ocserv program is copyrighted and licensed
  * under the following terms:
  *
- *  Copyright (C) 2013, 2014 Nikos Mavrogiannopoulos, all rights reserved.
+ *  Copyright (C) 2013, 2014, 2015 Nikos Mavrogiannopoulos, all rights reserved.
  *  This is free software. It is licensed for use, modification and
  *  redistribution under the terms of the GNU General Public License,
  *  version 2 <http://gnu.org/licenses/gpl.html>
@@ -77,9 +77,9 @@ typedef enum {
 /** count of all options for ocserv */
 #define OPTION_CT    7
 /** ocserv version */
-#define OCSERV_VERSION       "0.9.2"
+#define OCSERV_VERSION       "0.10.1"
 /** Full ocserv version text */
-#define OCSERV_FULL_VERSION  "ocserv 0.9.2"
+#define OCSERV_FULL_VERSION  "ocserv 0.10.1"
 
 /**
  *  Interface defines for all options.  Replace "n" with the UPPER_CASED
