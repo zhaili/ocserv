@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.10.1], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.10.4], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -392,7 +392,7 @@ if test "$test_for_gssapi" = yes;then
 PKG_CHECK_MODULES([LIBKRB5], [krb5-gssapi], [
 enable_gssapi=yes
 AC_DEFINE([HAVE_GSSAPI], [], [GSSAPI was found])
-PKG_CHECK_MODULES(LIBTASN1, [libtasn1 >= 3.9])
+PKG_CHECK_MODULES(LIBTASN1, [libtasn1 >= 3.8])
 ],
 [
 	AC_MSG_WARN([[
@@ -502,7 +502,7 @@ Summary of build options:
 
 AC_MSG_NOTICE([
 
-Experimental (not recommended) options:
+Options for specific systems:
   dbus:                 ${dbus_enabled}
 ])
 

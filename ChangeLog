@@ -1,3 +1,374 @@
+2015-04-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS, configure.ac: bumped version
+
+2015-04-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-04-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ctl.proto, src/ipc.proto, src/main-ctl-dbus.c,
+	src/main-ctl-unix.c, src/main-sec-mod-cmd.c, src/main.h,
+	src/occtl-unix.c, src/sec-mod-auth.c: keep track of client entries
+	in sec-mod and report them in status msg
+
+2015-04-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c: sec-mod: expire sessions which are in
+	terminated state Reported by riteki@gmail.com.
+
+2015-04-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-http.c: Added support for chacha20-poly1305 if compiled
+	with gnutls 3.4.0
+
+2015-04-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ocserv-args.def: doc update
+
+2015-04-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: NEWS: made header consistent
+
+2015-04-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.10.3
+
+2015-04-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ip-lease.c, src/main-auth.c, src/main-misc.c, src/tun.c: 
+	improved log messages and levels
+
+2015-04-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* README: README: updated command for test server
+
+2015-04-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-04-21  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: bumped version
+
+2015-04-22  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-22  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def: removed unimplemented option
+
+2015-04-22  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-extras.c, src/worker-privs.c: if user-profile or binary
+	files are setup allow opening files on isolation That fixes the user-profile configuration setting when
+	isolate-workers is set to true.
+
+2015-04-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/test-cookie-timeout, tests/test-cookie-timeout-2,
+	tests/test-multi-cookie: tests: improved tests with cookies They use the --background openconnect option instead of the shell
+	background command.
+
+2015-04-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/test-cookie-invalidation,
+	tests/test-cookie-invalidation.config: tests: added test for cookie
+	invalidation
+
+2015-04-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ipc.proto, src/main.h, src/sec-mod-auth.c, src/worker-vpn.c: 
+	when the user has voluntarily terminated the session invalidate the
+	cookie
+
+2015-04-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def: mention about clamping MSS
+
+2015-04-20  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS, src/ocserv-args.def: doc update
+
+2015-04-20  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c: set the the don't fragment bit only when mtu discovery
+	is set
+
+2015-04-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-auth.c: fixed debugging message
+
+2015-04-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: reflect the received DPD packets
+
+2015-04-19  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-04-18  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: NEWS: fixed typo
+
+2015-04-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: doc update
+
+2015-04-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ip-lease.c: document tun assignment
+
+2015-04-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: reset the IPv4 address of tun device in linux
+
+2015-04-16  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: delete routes and ipv6 interface address in linux as
+	well
+
+2015-04-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-04-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: tun: restrict SIOCDIFADDR on non-linux
+
+2015-04-13  Brian Chu <cynix@cynix.org>
+
+	* src/ip-lease.c, src/main.h, src/tun.c: Remove addresses from old
+	tun device when stealing leases
+
+2015-04-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/config.c: when multiple auth methods are set, do not 'require'
+	a certificate
+
+2015-04-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c: reject bad commands from main
+
+2015-04-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c: dbus: require desc to be non-null
+
+2015-04-04  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-04-04  Brian Chu <cynix@cynix.org>
+
+	* src/tun.c: Set TUNSIFHEAD on the tun device if supported
+
+2015-04-04  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: Revert "tun: only use the TUN_AF_PREFIX in OpenBSD" This reverts commit 2df8e244abf3dc94ff5b6881b02da74d08999c84.
+
+2015-04-04  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-04-04  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/tun.c: tun: only use the TUN_AF_PREFIX in OpenBSD
+
+2015-04-04  Brian Chu <cynix@cynix.org>
+
+	* src/tun.c: Fix indentation
+
+2015-04-04  Brian Chu <cynix@cynix.org>
+
+	* src/tun.c: Fix invalid return value
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c: dbus: reduced verbosity of module
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c: dbus: share the common part of signature in
+	user listing
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-unix.c, src/main-ctl.h: terminate_proc is shared
+	between dbus and unix
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: doc update: remove dbus from the non-recommended
+	options
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/Makefile.am: install dbus config file if DBUS is enabled
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c: dbus: use terminate_proc
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c, src/occtl-dbus.c: dbus: include no-route
+	information in the user info
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c, src/occtl-dbus.c: dbus: include DTLS/CSTP
+	compression and MTU in the user info
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c, src/occtl-dbus.c: dbus status command is in
+	par with unix sockets one
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c, src/occtl-dbus.c: dbus: fixed new commands
+	for ban/list
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* TODO: removed old todo items
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: enable dbus
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c: dbus: more debugging messages
+
+2015-04-03  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl-dbus.c, src/occtl-dbus.c: dbus: added new commands
+	for ban/list
+
+2015-04-02  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: server header moved to X-CSTP-Server That would allow viewing the server from openconnect verbose output.
+
+2015-03-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tlslib.c, src/tlslib.h: tlslib: define DTLS1_2 when needed
+
+2015-03-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: configure: no need to require libtasn1 3.9
+
+2015-03-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-03-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/tlslib.c, src/worker-http.c, src/worker.h: ciphersuite check
+	is made dynamic That would allow ocserv to be compiled with GnuTLS earlier than
+	3.2.7 but still use GCM if linked with a proper version.
+
+2015-03-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-common.sh: tests: docker-common includes common.sh
+
+2015-03-31  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c: sec-mod: do not impose timeouts on reads from main
+
+2015-03-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/common.sh, tests/full-test, tests/pam-test,
+	tests/radius-test, tests/test-ban, tests/test-cert,
+	tests/test-cookie-timeout, tests/test-cookie-timeout-2,
+	tests/test-explicit-ip, tests/test-group-cert,
+	tests/test-group-pass, tests/test-iroute, tests/test-multi-cookie,
+	tests/test-pass, tests/test-pass-cert, tests/test-pass-group-cert,
+	tests/test-pass-group-cert-no-pass, tests/test-pass-opt-cert,
+	tests/test-pass-script, tests/test-sighup, tests/test-stress,
+	tests/unix-test: tests: openconnect binary is now set in variable
+
+2015-03-29  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.10.2
+
+2015-03-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-sec-mod-cmd.c, src/sec-mod-auth.c: reduce messages sent
+	by main to sec-mod
+
+2015-03-26  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac: bumped version
+
+2015-03-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/Dockerfile-fedora-client: tests: rely on
+	fedora's openconnect for kerberos-test
+
+2015-03-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-03-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ipc.proto, src/main-sec-mod-cmd.c, src/sec-mod-auth.c,
+	src/sec-mod.c, src/sec-mod.h: receive SM_CMD_AUTH_BAN_IP_REPLY
+	asynchronously to prevent race conditions
+
+2015-03-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: worker: don't use getsockopt(TCP_MAXSEG) on unix
+	sockets That avoids unhelpful warnings on the log. Reported by Claudio Luck.
+
+2015-03-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test: tests: corrected full-test checks
+
+2015-03-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-03-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ipc.proto, src/main-auth.c, src/worker-auth.c: worker: when
+	receiving auth_cookie_reply from main update the SID That fixes an issue where the worker didn't know its correct SID,
+	because (1) we didn't always send the SID as cookie - corrected in
+	the previous patch, and (2) openconnect client doesn't honour all
+	cookies, only the webvpnc one. In all cases it is more trustworthy
+	to check our view of the SID rather than rely on the cookie.  Resolves issue with stats not being transmitted to sec-module when
+	using certificate authentication.
+
+2015-03-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: worker: always set the webvpncontext cookie
+
+2015-03-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test: full-test: set PORT_OCSERV
+
+2015-03-16  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: print unknown SIDs
+
 2015-03-15  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* NEWS: released 0.10.1

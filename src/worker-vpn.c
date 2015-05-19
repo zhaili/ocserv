@@ -80,6 +80,11 @@ static int parse_cstp_data(struct worker_st *ws, uint8_t * buf, size_t buf_size,
 static int parse_dtls_data(struct worker_st *ws, uint8_t * buf, size_t buf_size,
 			   time_t);
 void exit_worker(worker_st * ws);
+
+#define REASON_ANY 0
+#define REASON_USER_DISCONNECT 1
+static void exit_worker_reason(worker_st * ws, unsigned reason);
+
 static int connect_handler(worker_st * ws);
 
 static void handle_alarm(int signo)
@@ -291,7 +296,7 @@ void ws_add_score_to_ip(worker_st *ws, unsigned points, unsigned final)
 	return;
 }
 
-void send_stats_to_secmod(worker_st * ws, time_t now)
+void send_stats_to_secmod(worker_st * ws, time_t now, unsigned invalidate_cookie)
 {
 	CliStatsMsg msg = CLI_STATS_MSG__INIT;
 	int sd, ret, e;
@@ -307,6 +312,11 @@ void send_stats_to_secmod(worker_st * ws, time_t now)
 		msg.sid.len = sizeof(ws->sid);
 		msg.sid.data = ws->sid;
 		msg.has_sid = 1;
+
+		if (invalidate_cookie) {
+			msg.has_invalidate_cookie = 1;
+			msg.invalidate_cookie = 1;
+		}
 
 		msg.remote_ip = human_addr2((void *)&ws->remote_addr, ws->remote_addr_len,
 		       		     buf, sizeof(buf), 0);
@@ -336,9 +346,14 @@ void send_stats_to_secmod(worker_st * ws, time_t now)
  */
 void exit_worker(worker_st * ws)
 {
+	exit_worker_reason(ws, REASON_ANY);
+}
+
+static void exit_worker_reason(worker_st * ws, unsigned reason)
+{
 	/* send statistics to parent */
 	if (ws->auth_state == S_AUTH_COMPLETE) {
-		send_stats_to_secmod(ws, time(0));
+		send_stats_to_secmod(ws, time(0), (reason==REASON_USER_DISCONNECT)?1:0);
 	}
 
 	if (ws->ban_points > 0)
@@ -689,7 +704,7 @@ int periodic_check(worker_st * ws, unsigned mtu_overhead, time_t now,
 	if (ws->config->stats_report_time > 0 &&
 	    now - ws->last_stats_msg >= ws->config->stats_report_time &&
 	    ws->sid_set) {
-		send_stats_to_secmod(ws, now);
+		send_stats_to_secmod(ws, now, 0);
 	}
 
 	/* check DPD. Otherwise exit */
@@ -732,19 +747,21 @@ int periodic_check(worker_st * ws, unsigned mtu_overhead, time_t now,
 		}
 	}
 
-	sl = sizeof(max);
-	ret = getsockopt(ws->conn_fd, IPPROTO_TCP, TCP_MAXSEG, &max, &sl);
-	if (ret == -1) {
-		e = errno;
-		oclog(ws, LOG_INFO, "error in getting TCP_MAXSEG: %s",
-		      strerror(e));
-	} else {
-		max -= 13;
-		/*oclog(ws, LOG_DEBUG, "TCP MSS is %u", max); */
-		if (max > 0 && max - mtu_overhead < ws->conn_mtu) {
-			oclog(ws, LOG_DEBUG, "reducing MTU due to TCP MSS to %u",
-			      max - mtu_overhead);
-			mtu_set(ws, MIN(ws->conn_mtu, max - mtu_overhead));
+	if (ws->conn_type != SOCK_TYPE_UNIX) {
+		sl = sizeof(max);
+		ret = getsockopt(ws->conn_fd, IPPROTO_TCP, TCP_MAXSEG, &max, &sl);
+		if (ret == -1) {
+			e = errno;
+			oclog(ws, LOG_INFO, "error in getting TCP_MAXSEG: %s",
+			      strerror(e));
+		} else {
+			max -= 13;
+			/*oclog(ws, LOG_DEBUG, "TCP MSS is %u", max); */
+			if (max > 0 && max - mtu_overhead < ws->conn_mtu) {
+				oclog(ws, LOG_DEBUG, "reducing MTU due to TCP MSS to %u",
+				      max - mtu_overhead);
+				mtu_set(ws, MIN(ws->conn_mtu, max - mtu_overhead));
+			}
 		}
 	}
 
@@ -1301,7 +1318,7 @@ static int connect_handler(worker_st * ws)
 	ret = cstp_puts(ws, "X-CSTP-Version: 1\r\n");
 	SEND_ERR(ret);
 
-	ret = cstp_puts(ws, "X-Server-Version: "PACKAGE_STRING"\r\n");
+	ret = cstp_puts(ws, "X-CSTP-Server-Name: "PACKAGE_STRING"\r\n");
 	SEND_ERR(ret);
 
 	if (req->is_mobile) {
@@ -1342,19 +1359,21 @@ static int connect_handler(worker_st * ws)
 		ws->vinfo.mtu = MIN(ws->vinfo.mtu, req->base_mtu);
 	}
 
-	sl = sizeof(max);
-	ret = getsockopt(ws->conn_fd, IPPROTO_TCP, TCP_MAXSEG, &max, &sl);
-	if (ret == -1) {
-		e = errno;
-		oclog(ws, LOG_INFO, "error in getting TCP_MAXSEG: %s",
-		      strerror(e));
-	} else {
-		max -= 13;
-		oclog(ws, LOG_DEBUG, "TCP MSS is %u", max);
-		if (max > 0 && max < ws->vinfo.mtu) {
-			oclog(ws, LOG_DEBUG,
-			      "reducing MTU due to TCP MSS to %u", max);
-			ws->vinfo.mtu = max;
+	if (ws->conn_type != SOCK_TYPE_UNIX) {
+		sl = sizeof(max);
+		ret = getsockopt(ws->conn_fd, IPPROTO_TCP, TCP_MAXSEG, &max, &sl);
+		if (ret == -1) {
+			e = errno;
+			oclog(ws, LOG_INFO, "error in getting TCP_MAXSEG: %s",
+			      strerror(e));
+		} else {
+			max -= 13;
+			oclog(ws, LOG_DEBUG, "TCP MSS is %u", max);
+			if (max > 0 && max < ws->vinfo.mtu) {
+				oclog(ws, LOG_DEBUG,
+				      "reducing MTU due to TCP MSS to %u", max);
+				ws->vinfo.mtu = max;
+			}
 		}
 	}
 
@@ -1872,12 +1891,23 @@ static int connect_handler(worker_st * ws)
 	return -1;
 }
 
-static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interface of recv */
-		      uint8_t head, uint8_t * buf, size_t buf_size, time_t now)
+static int parse_data(struct worker_st *ws, uint8_t *buf, size_t buf_size,
+		      time_t now, unsigned is_dtls)
 {
 	int ret, e;
-	uint8_t *plain = buf;
-	ssize_t plain_size = buf_size;
+	uint8_t *plain;
+	ssize_t plain_size;
+	unsigned head;
+
+	if (is_dtls == 0) { /* CSTP */
+		plain = buf + 8;
+		plain_size = buf_size - 8;
+		head = buf[6];
+	} else {
+		plain = buf + 1;
+		plain_size = buf_size - 1;
+		head = buf[0];
+	}
 
 	switch (head) {
 	case AC_PKT_DPD_RESP:
@@ -1887,8 +1917,9 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 		oclog(ws, LOG_TRANSFER_DEBUG, "received keepalive");
 		break;
 	case AC_PKT_DPD_OUT:
-		if (ws->session == ts) {
-			ret = cstp_send(ws, "STF\x01\x00\x00\x04\x00", 8);
+		if (is_dtls == 0) {
+			buf[6] = AC_PKT_DPD_RESP;
+			ret = cstp_send(ws, buf, buf_size);
 
 			oclog(ws, LOG_TRANSFER_DEBUG,
 			      "received TLS DPD; sent response (%d bytes)",
@@ -1900,12 +1931,12 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 			}
 		} else {
 			/* Use DPD for MTU discovery in DTLS */
-			ws->buffer[0] = AC_PKT_DPD_RESP;
+			buf[0] = AC_PKT_DPD_RESP;
 
-			ret = dtls_send(ws, ws->buffer, 1);
+			ret = dtls_send(ws, buf, buf_size);
 			if (ret == GNUTLS_E_LARGE_PACKET) {
 				mtu_not_ok(ws);
-				ret = dtls_send(ws, ws->buffer, 1);
+				ret = dtls_send(ws, buf, 1);
 			}
 
 			oclog(ws, LOG_TRANSFER_DEBUG,
@@ -1922,26 +1953,26 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 		break;
 	case AC_PKT_DISCONN:
 		oclog(ws, LOG_DEBUG, "received BYE packet; exiting");
-		exit_worker(ws);
+		exit_worker_reason(ws, REASON_USER_DISCONNECT);
 		break;
 	case AC_PKT_COMPRESSED:
 		/* decompress */
-		if (ws->session == ts) { /* CSTP */
+		if (is_dtls == 0) { /* CSTP */
 			if (ws->cstp_selected_comp == NULL) {
 				oclog(ws, LOG_ERR, "received compression data but no compression was negotiated");
 				return -1;
 			}
 
-			plain_size = ws->cstp_selected_comp->decompress(ws->decomp, sizeof(ws->decomp), buf, buf_size);
-			oclog(ws, LOG_DEBUG, "decompressed %d to %d\n", (int)buf_size, (int)plain_size);
+			plain_size = ws->cstp_selected_comp->decompress(ws->decomp, sizeof(ws->decomp), plain, plain_size);
+			oclog(ws, LOG_DEBUG, "decompressed %d to %d\n", (int)buf_size-8, (int)plain_size);
 		} else { /* DTLS */
 			if (ws->dtls_selected_comp == NULL) {
 				oclog(ws, LOG_ERR, "received compression data but no compression was negotiated");
 				return -1;
 			}
 
-			plain_size = ws->dtls_selected_comp->decompress(ws->decomp, sizeof(ws->decomp), buf, buf_size);
-			oclog(ws, LOG_DEBUG, "decompressed %d to %d\n", (int)buf_size, (int)plain_size);
+			plain_size = ws->dtls_selected_comp->decompress(ws->decomp, sizeof(ws->decomp), plain, plain_size);
+			oclog(ws, LOG_DEBUG, "decompressed %d to %d\n", (int)buf_size-1, (int)plain_size);
 		}
 
 		if (plain_size <= 0) {
@@ -1952,7 +1983,7 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 		/* fall through */
 	case AC_PKT_DATA:
 		oclog(ws, LOG_TRANSFER_DEBUG, "writing %d byte(s) to TUN",
-		      (int)buf_size);
+		      (int)plain_size);
 		ret = tun_write(ws->tun_fd, plain, plain_size);
 		if (ret == -1) {
 			e = errno;
@@ -1960,13 +1991,13 @@ static int parse_data(struct worker_st *ws, gnutls_session_t ts,	/* the interfac
 			      strerror(e));
 			return -1;
 		}
-		ws->tun_bytes_in += buf_size;
+		ws->tun_bytes_in += plain_size;
 		ws->last_nc_msg = now;
 
 		break;
 	default:
-		oclog(ws, LOG_DEBUG, "received unknown packet %u",
-		      (unsigned)head);
+		oclog(ws, LOG_DEBUG, "received unknown packet %u/size: %u",
+		      (unsigned)head, (unsigned)buf_size);
 	}
 
 	return head;
@@ -1992,11 +2023,12 @@ static int parse_cstp_data(struct worker_st *ws,
 
 	pktlen = (buf[4] << 8) + buf[5];
 	if (buf_size != 8 + pktlen) {
-		oclog(ws, LOG_INFO, "unexpected CSTP length");
+		oclog(ws, LOG_INFO, "unexpected CSTP length (have %u, should be %d)",
+		      (unsigned)pktlen, (unsigned)buf_size-8);
 		return -1;
 	}
 
-	ret = parse_data(ws, ws->session, buf[6], buf + 8, pktlen, now);
+	ret = parse_data(ws, buf, buf_size, now, 0);
 	/* whatever we received treat it as DPD response.
 	 * it indicates that the channel is alive */
 	ws->last_msg_tcp = now;
@@ -2017,8 +2049,7 @@ static int parse_dtls_data(struct worker_st *ws,
 	}
 
 	ret =
-	    parse_data(ws, ws->dtls_session, buf[0], buf + 1, buf_size - 1,
-		       now);
+	    parse_data(ws, buf, buf_size, now, 1);
 	ws->last_msg_udp = now;
 	return ret;
 }

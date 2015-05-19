@@ -218,6 +218,8 @@ dpd = 90
 mobile-dpd = 1800
 
 # MTU discovery (DPD must be enabled)
+# If set, this forces all UDP packets to carry the don't fragment 
+# (DF) bit.
 try-mtu-discovery = false
 
 # The key and the certificates of the server
@@ -567,17 +569,15 @@ no-route = 192.168.5.0/255.255.255.0
 # for clients to present their certificate on every connection.
 # That is they may resume a cookie without presenting a certificate
 # (when certificate authentication is used).
-#cisco-client-compat = true
+cisco-client-compat = true
 
 # Client profile xml. A sample file exists in doc/profile.xml.
 # It is required by some of the CISCO clients.
-# This file must be accessible from inside the worker's chroot. 
+# This file must be accessible from inside the worker's chroot.
+# Note that enabling this option is not recommended as it will allow
+# the worker processes to open arbitrary files (when isolate-workers is
+# set to true).
 #user-profile = /path/to/file.xml
-
-# Binary files that may be downloaded by the CISCO client. Must
-# be within any chroot environment. Normally you don't need
-# to use this option.
-#binary-files = /path/to/binaries
 
 #Advanced options
 
@@ -656,7 +656,7 @@ allow authentication using any method GSSAPI supports. That is, mainly, Kerberos
 authentication. That is often more useful to be combined with PAM or other
 password authentication methods so that a fallback mechanism can be used when
 GSSAPI fails (e.g., when the user doesn't already have a Kerberos ticket). The
-GSSAPI authentication is implemented using SPNEGO.
+GSSAPI authentication is implemented using SPNEGO over HTTP (RFC4559).
 
 @subheading Public key (certificate) authentication
 Public key authentication allows the user to be authenticated
@@ -819,6 +819,17 @@ The server has been tested to be compatible with the openconnect VPN client. How
 it is also known to be compatible with certain CISCO AnyConnect clients.
 To enable compatibility with CISCO's AnyConnect the cisco-client-compat
 and user-profile options must be set in ocserv's configuration.
+_EOT_;
+};
+
+doc-section = {
+  ds-type = 'NETWORKING CONSIDERATIONS';
+  ds-format = 'texi';
+  ds-text   = <<-_EOT_
+In certain setups, where a firewall may be blocking ICMP responses, it is setting the
+MSS of TCP connections to MTU will eliminate the "black hole" connection issues.
+See http://lartc.org/howto/lartc.cookbook.mtu-mss.html for instructions
+to enable it on a Linux system.
 _EOT_;
 };
 

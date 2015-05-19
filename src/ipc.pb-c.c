@@ -820,7 +820,7 @@ const ProtobufCMessageDescriptor auth_cookie_request_msg__descriptor =
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const protobuf_c_boolean auth_reply_msg__no_udp__default_value = 0;
-static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[24] =
+static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[25] =
 {
   {
     "reply",
@@ -1110,6 +1110,18 @@ static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[24] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "sid",
+    30,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_BYTES,
+    0,   /* quantifier_offset */
+    offsetof(AuthReplyMsg, sid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned auth_reply_msg__field_indices_by_name[] = {
   16,   /* field[16] = dns */
@@ -1132,6 +1144,7 @@ static const unsigned auth_reply_msg__field_indices_by_name[] = {
   15,   /* field[15] = routes */
   12,   /* field[12] = rx_per_sec */
   1,   /* field[1] = session_id */
+  24,   /* field[24] = sid */
   13,   /* field[13] = tx_per_sec */
   3,   /* field[3] = user_name */
   2,   /* field[2] = vname */
@@ -1142,7 +1155,7 @@ static const ProtobufCIntRange auth_reply_msg__number_ranges[3 + 1] =
   { 1, 0 },
   { 3, 1 },
   { 15, 9 },
-  { 0, 24 }
+  { 0, 25 }
 };
 const ProtobufCMessageDescriptor auth_reply_msg__descriptor =
 {
@@ -1152,7 +1165,7 @@ const ProtobufCMessageDescriptor auth_reply_msg__descriptor =
   "AuthReplyMsg",
   "",
   sizeof(AuthReplyMsg),
-  24,
+  25,
   auth_reply_msg__field_descriptors,
   auth_reply_msg__field_indices_by_name,
   3,  auth_reply_msg__number_ranges,
@@ -1365,7 +1378,7 @@ const ProtobufCMessageDescriptor tun_mtu_msg__descriptor =
   (ProtobufCMessageInit) tun_mtu_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[7] =
+static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[9] =
 {
   {
     "bytes_in",
@@ -1451,20 +1464,46 @@ static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[7] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "invalidate_cookie",
+    8,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BOOL,
+    offsetof(CliStatsMsg, has_invalidate_cookie),
+    offsetof(CliStatsMsg, invalidate_cookie),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "secmod_client_entries",
+    9,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(CliStatsMsg, has_secmod_client_entries),
+    offsetof(CliStatsMsg, secmod_client_entries),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned cli_stats_msg__field_indices_by_name[] = {
   0,   /* field[0] = bytes_in */
   1,   /* field[1] = bytes_out */
+  7,   /* field[7] = invalidate_cookie */
   5,   /* field[5] = ipv4 */
   6,   /* field[6] = ipv6 */
   4,   /* field[4] = remote_ip */
+  8,   /* field[8] = secmod_client_entries */
   2,   /* field[2] = sid */
   3,   /* field[3] = uptime */
 };
 static const ProtobufCIntRange cli_stats_msg__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 7 }
+  { 0, 9 }
 };
 const ProtobufCMessageDescriptor cli_stats_msg__descriptor =
 {
@@ -1474,7 +1513,7 @@ const ProtobufCMessageDescriptor cli_stats_msg__descriptor =
   "CliStatsMsg",
   "",
   sizeof(CliStatsMsg),
-  7,
+  9,
   cli_stats_msg__field_descriptors,
   cli_stats_msg__field_indices_by_name,
   1,  cli_stats_msg__number_ranges,
@@ -1623,7 +1662,7 @@ const ProtobufCMessageDescriptor session_info_msg__descriptor =
   (ProtobufCMessageInit) session_info_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor ban_ip_msg__field_descriptors[2] =
+static const ProtobufCFieldDescriptor ban_ip_msg__field_descriptors[3] =
 {
   {
     "ip",
@@ -1649,15 +1688,28 @@ static const ProtobufCFieldDescriptor ban_ip_msg__field_descriptors[2] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "sid",
+    3,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BYTES,
+    offsetof(BanIpMsg, has_sid),
+    offsetof(BanIpMsg, sid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned ban_ip_msg__field_indices_by_name[] = {
   0,   /* field[0] = ip */
   1,   /* field[1] = score */
+  2,   /* field[2] = sid */
 };
 static const ProtobufCIntRange ban_ip_msg__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 2 }
+  { 0, 3 }
 };
 const ProtobufCMessageDescriptor ban_ip_msg__descriptor =
 {
@@ -1667,14 +1719,14 @@ const ProtobufCMessageDescriptor ban_ip_msg__descriptor =
   "BanIpMsg",
   "",
   sizeof(BanIpMsg),
-  2,
+  3,
   ban_ip_msg__field_descriptors,
   ban_ip_msg__field_indices_by_name,
   1,  ban_ip_msg__number_ranges,
   (ProtobufCMessageInit) ban_ip_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor ban_ip_reply_msg__field_descriptors[1] =
+static const ProtobufCFieldDescriptor ban_ip_reply_msg__field_descriptors[2] =
 {
   {
     "reply",
@@ -1688,14 +1740,27 @@ static const ProtobufCFieldDescriptor ban_ip_reply_msg__field_descriptors[1] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "sid",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BYTES,
+    offsetof(BanIpReplyMsg, has_sid),
+    offsetof(BanIpReplyMsg, sid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned ban_ip_reply_msg__field_indices_by_name[] = {
   0,   /* field[0] = reply */
+  1,   /* field[1] = sid */
 };
 static const ProtobufCIntRange ban_ip_reply_msg__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 1 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor ban_ip_reply_msg__descriptor =
 {
@@ -1705,7 +1770,7 @@ const ProtobufCMessageDescriptor ban_ip_reply_msg__descriptor =
   "BanIpReplyMsg",
   "",
   sizeof(BanIpReplyMsg),
-  1,
+  2,
   ban_ip_reply_msg__field_descriptors,
   ban_ip_reply_msg__field_indices_by_name,
   1,  ban_ip_reply_msg__number_ranges,

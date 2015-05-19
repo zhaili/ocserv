@@ -51,7 +51,7 @@ message auth_cookie_request_msg
 message auth_reply_msg
 {
 	required AUTH_REP reply = 1;
-	optional bytes session_id = 3;
+	optional bytes session_id = 3; /* dtls */
 	optional string vname = 4;
 	optional string user_name = 5;
 	optional string group_name = 25;
@@ -78,6 +78,7 @@ message auth_reply_msg
 	optional string ipv4_network = 27;
 	optional string ipv6_network = 28;
 	repeated string no_routes = 29;
+	required bytes sid = 30;
 }
 
 /* RESUME_FETCH_REQ + RESUME_DELETE_REQ */
@@ -119,6 +120,8 @@ message cli_stats_msg
 	optional string remote_ip = 5;
 	optional string ipv4 = 6;
 	optional string ipv6 = 7;
+	optional bool invalidate_cookie = 8;
+	optional uint32 secmod_client_entries = 9; /* from sec-mod to main only */
 }
 
 /* UDP_FD */
@@ -143,12 +146,14 @@ message ban_ip_msg
 {
 	required string ip = 1;
 	required uint32 score = 2;
+	optional bytes sid = 3; /* sec-mod sends it */
 }
 
 message ban_ip_reply_msg
 {
 	/* whether to disconnect the user */
 	required AUTH_REP reply = 1;
+	optional bytes sid = 2; /* sec-mod needs it */
 }
 
 /* Messages to and from the security module */

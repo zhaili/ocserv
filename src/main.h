@@ -79,6 +79,8 @@ enum {
 	PS_AUTH_INIT, /* worker has sent an auth init msg */
 	PS_AUTH_CONT, /* worker has sent an auth cont msg */
 	PS_AUTH_COMPLETED, /* successful authentication */
+	PS_AUTH_USER_TERM /* user has terminated the session: this state is only valid in sec-mod.
+	                   * The reason for this mode is to indicate the cookie invalidation. */
 };
 
 /* Each worker process maps to a unique proc_st structure.
@@ -189,6 +191,9 @@ typedef struct main_server_st {
 	unsigned secmod_addr_len;
 	
 	unsigned active_clients;
+	/* updated on the cli_stats_msg from sec-mod. 
+	 * Holds the number of entries in secmod list of users */
+	unsigned secmod_client_entries;
 	time_t start_time;
 
 	void * auth_extra;
@@ -245,6 +250,7 @@ void  mslog_hex(const main_server_st * s, const struct proc_st* proc,
 
 int open_tun(main_server_st* s, struct proc_st* proc);
 void close_tun(main_server_st* s, struct proc_st* proc);
+void reset_tun(struct proc_st* proc);
 int set_tun_mtu(main_server_st* s, struct proc_st * proc, unsigned mtu);
 
 int send_cookie_auth_reply(main_server_st* s, struct proc_st* proc,

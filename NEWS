@@ -1,3 +1,35 @@
+* Version 0.10.4 (released 2015-04-27)
+- sec-mod: expire sessions which are in terminated state
+
+
+* Version 0.10.3 (released 2015-04-25)
+- Detection of gnutls capabilities was made dynamic. That would allow
+  the server to be compiled with old gnutls version but still use new
+  functionality when linked with a newer version.
+- The DBUS communication channel with occtl was brought up in par
+  with the unix socket based one.
+- Fixed issues with FreeBSD tun device handling. Reports and patches
+  by Brian Chu.
+- When multiple authentication methods are set and the primary includes
+  a certificate, no longer require a certificate for all clients.
+- When receiving non-minimal DPD messages, reflect their contents.
+  This allows using DPD for MTU detection.
+- The 'try-mtu-discovery' config option was fixed to affect the DF bit
+  setting in UDP packets.
+- Invalidate cookies when the user terminates the session explicitly.
+- Fixed 'user-profile' option when isolate-workers is set to true.
+- sec-mod: Do not impose timeouts on reads from main. That would prevent
+  issues when reading in a very busy system.
+
+
+* Version 0.10.2 (released 2015-03-29)
+- Fixed issue with stats not being transmitted to sec-mod from workers
+  Reported by jacky he.
+- Fixed race condition which caused a desync between sec-mod and main
+  communication channel, if a user was connected at the time one was
+  being added ban points.
+
+
 * Version 0.10.1 (released 2015-03-15)
 - Fixed issues with the handling of clients connecting with expired
   cookies. Reported by sskaje.
