@@ -75,55 +75,39 @@ void sec_auth_init(sec_mod_st * sec, struct perm_cfg_st *config)
 /* returns a negative number if we have reached the score for this client.
  */
 static
-int sec_mod_add_score_to_ip(sec_mod_st *sec, void *pool, const char *ip, unsigned points)
+void sec_mod_add_score_to_ip(sec_mod_st *sec, client_entry_st *e, const char *ip, unsigned points)
 {
-	void *lpool = talloc_new(pool);
-	int ret, e;
+	void *lpool = talloc_new(e);
+	int ret, err;
 	BanIpMsg msg = BAN_IP_MSG__INIT;
-	BanIpReplyMsg *reply = NULL;
-	PROTOBUF_ALLOCATOR(pa, lpool);
 
 	/* no reporting if banning is disabled */
 	if (sec->config->max_ban_score == 0)
-		return 0;
+		return;
 
 	msg.ip = (char*)ip;
 	msg.score = points;
+	msg.sid.data = e->sid;
+	msg.sid.len = sizeof(e->sid);
+	msg.has_sid = 1;
 
 	if (lpool == NULL) {
-		return 0;
+		return;
 	}
 
 	ret = send_msg(lpool, sec->cmd_fd, SM_CMD_AUTH_BAN_IP, &msg,
 				(pack_size_func) ban_ip_msg__get_packed_size,
 				(pack_func) ban_ip_msg__pack);
 	if (ret < 0) {
-		e = errno;
-		seclog(sec, LOG_WARNING, "error in sending BAN IP message: %s", strerror(e));
-		ret = -1;
+		err = errno;
+		seclog(sec, LOG_WARNING, "error in sending BAN IP message: %s", strerror(err));
 		goto fail;
 	}
-
-	ret = recv_msg(lpool, sec->cmd_fd, SM_CMD_AUTH_BAN_IP_REPLY, (void*)&reply,
-		       (unpack_func) ban_ip_reply_msg__unpack);
-	if (ret < 0) {
-		seclog(sec, LOG_ERR, "error receiving BAN IP reply message");
-		ret = -1;
-		goto fail;
-	}
-
-	if (reply->reply != AUTH__REP__OK) {
-		/* we have exceeded the maximum score */
-		ret = -1;
-	} else {
-		ret = 0;
-	}
-	ban_ip_reply_msg__free_unpacked(reply, &pa);
 
  fail:
 	talloc_free(lpool);
 
-	return ret;
+	return;
 }
 
 static int generate_cookie(sec_mod_st * sec, client_entry_st * entry)
@@ -326,11 +310,7 @@ int handle_sec_auth_res(int cfd, sec_mod_st * sec, client_entry_st * e, int resu
 	if (result == ERR_AUTH_CONTINUE) {
 		/* if the module allows multiple retries for the password */
 		if (e->status != PS_AUTH_INIT && e->module && e->module->allows_retries) {
-			ret = sec_mod_add_score_to_ip(sec, e, e->auth_info.remote_ip, sec->config->ban_points_wrong_password);
-			if (ret < 0) {
-				e->status = PS_AUTH_FAILED;
-				return send_sec_auth_reply(cfd, sec, e, AUTH__REP__FAILED);
-			}
+			sec_mod_add_score_to_ip(sec, e, e->auth_info.remote_ip, sec->config->ban_points_wrong_password);
 		}
 
 		ret = send_sec_auth_reply_msg(cfd, sec, e);
@@ -340,7 +320,10 @@ int handle_sec_auth_res(int cfd, sec_mod_st * sec, client_entry_st * e, int resu
 			return ret;
 		}
 		return 0;	/* wait for another command */
-	} else if (result == 0) {
+	} else if (result == 0 && e->status != PS_AUTH_FAILED) {
+		/* we check status for PS_AUTH_FAILED, because status may
+		 * change async if we receive a message from main that the
+		 * user is banned */
 		e->status = PS_AUTH_COMPLETED;
 
 		if (e->module) {
@@ -427,7 +410,9 @@ int handle_sec_auth_session_open(int cfd, sec_mod_st *sec, const SecAuthSessionM
 
 	e = find_client_entry(sec, req->sid.data);
 	if (e == NULL) {
-		seclog(sec, LOG_INFO, "session open but with non-existing SID!");
+		char tmp[BASE64_LENGTH(SID_SIZE) + 1];
+		base64_encode((char *)req->sid.data, req->sid.len, (char *)tmp, sizeof(tmp));
+		seclog(sec, LOG_INFO, "session open but with non-existing SID: %s!", tmp);
 		return send_failed_session_open_reply(cfd, sec);
 	}
 
@@ -507,13 +492,15 @@ int handle_sec_auth_session_close(int cfd, sec_mod_st *sec, const SecAuthSession
 
 	e = find_client_entry(sec, req->sid.data);
 	if (e == NULL) {
-		seclog(sec, LOG_INFO, "session close but with non-existing SID!");
+		char tmp[BASE64_LENGTH(SID_SIZE) + 1];
+		base64_encode((char *)req->sid.data, req->sid.len, (char *)tmp, sizeof(tmp));
+		seclog(sec, LOG_INFO, "session close but with non-existing SID: %s", tmp);
 		return send_msg(e, cfd, SM_CMD_AUTH_CLI_STATS, &rep,
 		                (pack_size_func) cli_stats_msg__get_packed_size,
 		                (pack_func) cli_stats_msg__pack);
 	}
 
-	if (e->status != PS_AUTH_COMPLETED) {
+	if (e->status < PS_AUTH_COMPLETED) {
 		seclog(sec, LOG_DEBUG, "session close received in unauthenticated client %s "SESSION_STR"!", e->auth_info.username, e->auth_info.psid);
 		return send_msg(e, cfd, SM_CMD_AUTH_CLI_STATS, &rep,
 		                (pack_size_func) cli_stats_msg__get_packed_size,
@@ -535,6 +522,8 @@ int handle_sec_auth_session_close(int cfd, sec_mod_st *sec, const SecAuthSession
 	/* send reply */
 	rep.bytes_in = e->stats.bytes_in;
 	rep.bytes_out = e->stats.bytes_out;
+	rep.has_secmod_client_entries = 1;
+	rep.secmod_client_entries = sec_mod_client_db_elems(sec);
 
 	ret = send_msg(e, cfd, SM_CMD_AUTH_CLI_STATS, &rep,
 			(pack_size_func) cli_stats_msg__get_packed_size,
@@ -562,6 +551,28 @@ int handle_sec_auth_session_cmd(int cfd, sec_mod_st *sec, const SecAuthSessionMs
 		return handle_sec_auth_session_close(cfd, sec, req);
 }
 
+void handle_sec_auth_ban_ip_reply(int cfd, sec_mod_st *sec, const BanIpReplyMsg *msg)
+{
+	client_entry_st *e;
+
+	if (msg->sid.len != SID_SIZE) {
+		seclog(sec, LOG_ERR, "ban IP reply but with illegal sid size (%d)!",
+		       (int)msg->sid.len);
+		return;
+	}
+
+	e = find_client_entry(sec, msg->sid.data);
+	if (e == NULL) {
+		return;
+	}
+
+	if (msg->reply != AUTH__REP__OK) {
+		e->status = PS_AUTH_FAILED;
+	}
+
+	return;
+}
+
 int handle_sec_auth_stats_cmd(sec_mod_st * sec, const CliStatsMsg * req)
 {
 	client_entry_st *e;
@@ -575,7 +586,9 @@ int handle_sec_auth_stats_cmd(sec_mod_st * sec, const CliStatsMsg * req)
 
 	e = find_client_entry(sec, req->sid.data);
 	if (e == NULL) {
-		seclog(sec, LOG_INFO, "session stats but with non-existing sid!");
+		char tmp[BASE64_LENGTH(SID_SIZE) + 1];
+		base64_encode((char *)req->sid.data, req->sid.len, (char *)tmp, sizeof(tmp));
+		seclog(sec, LOG_INFO, "session stats but with non-existing SID: %s", tmp);
 		return -1;
 	}
 
@@ -592,6 +605,12 @@ int handle_sec_auth_stats_cmd(sec_mod_st * sec, const CliStatsMsg * req)
 	if (req->uptime > e->stats.uptime)
 		e->stats.uptime = req->uptime;
 
+	if (req->has_invalidate_cookie && req->invalidate_cookie != 0) {
+		seclog(sec, LOG_INFO, "invalidating session of user '%s' "SESSION_STR,
+			e->auth_info.username, e->auth_info.psid);
+		e->status = PS_AUTH_USER_TERM;
+	}
+
 	if (sec->perm_config->acct.amod == NULL || sec->perm_config->acct.amod->session_stats == NULL)
 		return 0;
 
@@ -604,6 +623,7 @@ int handle_sec_auth_stats_cmd(sec_mod_st * sec, const CliStatsMsg * req)
 		strlcpy(e->auth_info.ipv6, req->ipv6, sizeof(e->auth_info.ipv6));
 
 	sec->perm_config->acct.amod->session_stats(e->module->type, e->auth_ctx, &e->auth_info, &totals);
+
 	return 0;
 }
 

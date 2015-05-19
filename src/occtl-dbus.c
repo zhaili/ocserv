@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Red Hat
+ * Copyright (C) 2014, 2015 Red Hat
  *
  * Author: Nikos Mavrogiannopoulos
  *
@@ -29,6 +29,7 @@
 #include <dbus/dbus.h>
 #include <occtl.h>
 #include <c-strcase.h>
+#include <arpa/inet.h>
 
 typedef struct dbus_ctx {
 	DBusConnection *conn;
@@ -90,7 +91,7 @@ int handle_status_cmd(dbus_ctx *ctx, const char *arg)
 	dbus_bool_t status;
 	dbus_uint32_t pid;
 	dbus_uint32_t sec_mod_pid;
-	dbus_uint32_t clients;
+	dbus_uint32_t clients, stored_tls_sessions, banned_ips;
 
 	msg = send_dbus_cmd(ctx, "org.infradead.ocserv",
 			    "/org/infradead/ocserv",
@@ -127,12 +128,22 @@ int handle_status_cmd(dbus_ctx *ctx, const char *arg)
 		goto error_parse;
 	dbus_message_iter_get_basic(&args, &clients);
 
+	if (DBUS_TYPE_UINT32 != dbus_message_iter_get_arg_type(&args))
+		goto error_parse;
+	dbus_message_iter_get_basic(&args, &stored_tls_sessions);
+
+	if (DBUS_TYPE_UINT32 != dbus_message_iter_get_arg_type(&args))
+		goto error_parse;
+	dbus_message_iter_get_basic(&args, &banned_ips);
+
 	printf("OpenConnect SSL VPN server\n");
-	printf("     Status: %s\n", status != 0 ? "online" : "error");
-	printf("    Clients: %u\n", (unsigned)clients);
+	printf("           Status: %s\n", status != 0 ? "online" : "error");
+	printf("          Clients: %u\n", (unsigned)clients);
+	printf("  IPs in ban list: %u\n", (unsigned)banned_ips);
+	printf("   TLS DB entries: %u\n", (unsigned)stored_tls_sessions);
 	printf("\n");
-	printf(" Server PID: %u\n", (unsigned)pid);
-	printf("Sec-mod PID: %u\n", (unsigned)sec_mod_pid);
+	printf("       Server PID: %u\n", (unsigned)pid);
+	printf("      Sec-mod PID: %u\n", (unsigned)sec_mod_pid);
 
 	dbus_message_unref(msg);
 
@@ -247,6 +258,70 @@ int handle_stop_cmd(dbus_ctx *ctx, const char *arg)
 	fprintf(stderr, "%s: D-BUS message creation error\n", __func__);
 	goto cleanup;
  cleanup:
+	if (msg != NULL)
+		dbus_message_unref(msg);
+
+	return 1;
+}
+
+int handle_unban_ip_cmd(struct dbus_ctx *ctx, const char *arg)
+{
+	int af;
+	struct sockaddr_storage st;
+	DBusMessage *msg;
+	DBusMessageIter args;
+	dbus_bool_t status;
+	const char *ip;
+	char txt[MAX_IP_STR];
+	int ret;
+
+	if (arg == NULL || need_help(arg)) {
+		check_cmd_help(rl_line_buffer);
+		return 1;
+	}
+	
+	/* convert the IP to the simplest form */
+	if (strchr(arg, ':') != 0) {
+		af = AF_INET6;
+	} else {
+		af = AF_INET;
+	}
+
+	ret = inet_pton(af, arg, &st);
+	if (ret == 1) {
+		inet_ntop(af, &st, txt, sizeof(txt));
+		ip = txt;
+	} else {
+		ip = (char*)arg;
+	}
+
+	msg = send_dbus_cmd(ctx, "org.infradead.ocserv",
+			    "/org/infradead/ocserv",
+			    "org.infradead.ocserv",
+			    "unban_ip", DBUS_TYPE_STRING, &ip);
+	if (msg == NULL) {
+		goto error;
+	}
+
+	if (!dbus_message_iter_init(msg, &args))
+		goto error;
+
+	if (DBUS_TYPE_BOOLEAN != dbus_message_iter_get_arg_type(&args))
+		goto error;
+	dbus_message_iter_get_basic(&args, &status);
+
+	if (status != 0) {
+		printf("IP '%s' was unbanned\n", ip);
+	} else {
+		printf("could not unban IP '%s'\n", ip);
+	}
+
+	dbus_message_unref(msg);
+
+	return 0;
+
+ error:
+	fprintf(stderr, ERR_SERVER_UNREACHABLE);
 	if (msg != NULL)
 		dbus_message_unref(msg);
 
@@ -520,7 +595,7 @@ int handle_list_users_cmd(dbus_ctx *ctx, const char *arg)
 		fprintf(out, "%8d %8s %8s %14s %14s %6s ",
 			(int)id, username, groupname, ip, vpn_ip, device);
 
-		print_time_ival7(t, out);
+		print_time_ival7(time(0), t, out);
 		if (dtls_ciphersuite != NULL && dtls_ciphersuite[0] != 0) {
 			if (strlen(dtls_ciphersuite) > 16 && strncmp(dtls_ciphersuite, "(DTLS", 5) == 0 &&
 			    strncmp(&dtls_ciphersuite[8], ")-(RSA)-", 8) == 0)
@@ -552,6 +627,124 @@ int handle_list_users_cmd(dbus_ctx *ctx, const char *arg)
 	if (msg != NULL)
 		dbus_message_unref(msg);
 	return ret;
+}
+
+static
+int handle_list_banned_cmd(struct dbus_ctx *ctx, const char *arg, unsigned points)
+{
+	DBusMessage *msg;
+	DBusMessageIter args, suba, subs;
+	dbus_uint32_t expires = 0;
+	char *ip = "";
+	dbus_uint32_t score = 0;
+	time_t t;
+	struct tm *tm;
+	int ret = 1;
+	char str_since[64];
+	unsigned i = 0;
+	FILE *out;
+
+	ip_entries_clear();
+
+	out = pager_start();
+
+	msg = send_dbus_cmd(ctx, "org.infradead.ocserv",
+			    "/org/infradead/ocserv",
+			    "org.infradead.ocserv", "list_banned", 0, NULL);
+	if (msg == NULL) {
+		goto error_server;
+	}
+
+	if (!dbus_message_iter_init(msg, &args))
+		goto error_server;
+
+	if (dbus_message_iter_get_arg_type(&args) != DBUS_TYPE_ARRAY)
+		goto error_server;
+
+	dbus_message_iter_recurse(&args, &suba);
+
+	for (i=0;;i++) {
+		if (dbus_message_iter_get_arg_type(&suba) != DBUS_TYPE_STRUCT)
+			goto cleanup;
+		dbus_message_iter_recurse(&suba, &subs);
+
+		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_UINT32)
+			goto error_parse;
+		dbus_message_iter_get_basic(&subs, &score);
+
+		if (!dbus_message_iter_next(&subs))
+			goto error_recv;
+
+		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_STRING)
+			goto error_parse;
+		dbus_message_iter_get_basic(&subs, &ip);
+
+		if (!dbus_message_iter_next(&subs))
+			goto error_recv;
+
+		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_UINT32)
+			goto error_parse;
+		dbus_message_iter_get_basic(&subs, &expires);
+
+		if (points == 0) {
+			if (expires > 0) {
+				t = expires;
+				tm = localtime(&t);
+				strftime(str_since, sizeof(str_since), DATE_TIME_FMT, tm);
+			} else {
+				goto cont;
+			}
+
+			/* add header */
+			if (i == 0) {
+				fprintf(out, "%14s %14s %30s\n",
+					"IP", "score", "expires");
+			}
+			fprintf(out, "%14s %14u %30s (", ip, (unsigned)score, str_since);
+			print_time_ival7(t, time(0), out);
+			fputs(")\n", out);
+		} else {
+			if (i == 0) {
+				fprintf(out, "%14s %14s\n",
+					"IP", "score");
+			}
+
+			fprintf(out, "%14s %14u\n",
+				ip, (unsigned)score);
+		}
+
+		ip_entries_add(ctx, ip, strlen(ip));
+ cont:
+		if (!dbus_message_iter_next(&suba))
+			break;
+	}
+
+	ret = 0;
+	goto cleanup;
+
+ error_server:
+	fprintf(stderr, ERR_SERVER_UNREACHABLE);
+	goto cleanup;
+ error_parse:
+	fprintf(stderr, "%s: D-BUS message parsing error\n", __func__);
+	goto cleanup;
+ error_recv:
+	fprintf(stderr, "%s: D-BUS message receiving error\n", __func__);
+ cleanup:
+	pager_stop(out);
+	if (msg != NULL)
+		dbus_message_unref(msg);
+	return ret;
+}
+
+int handle_list_banned_ips_cmd(struct dbus_ctx *ctx, const char *arg)
+{
+	return handle_list_banned_cmd(ctx, arg, 0);
+}
+
+int handle_list_banned_points_cmd(struct dbus_ctx *ctx, const char *arg)
+{
+	return handle_list_banned_cmd(ctx, arg, 1);
 }
 
 int print_list_entries(FILE* out, const char* name, DBusMessageIter * subs)
@@ -589,7 +782,7 @@ int common_info_cmd(DBusMessageIter * args)
 {
 	DBusMessageIter suba, subs;
 	dbus_int32_t id = 0;
-	dbus_uint32_t rx = 0, tx = 0;
+	dbus_uint32_t rx = 0, tx = 0, mtu = 0;
 	char *username = "";
 	dbus_uint32_t since = 0;
 	char *groupname = "", *ip = "";
@@ -603,6 +796,7 @@ int common_info_cmd(DBusMessageIter * args)
 	FILE *out;
 	unsigned at_least_one = 0;
 	const char *dtls_ciphersuite, *tls_ciphersuite;
+	char *cstp_compr = "", *dtls_compr = "";
 	int ret = 1, r;
 
 	out = pager_start();
@@ -732,6 +926,27 @@ int common_info_cmd(DBusMessageIter * args)
 		if (!dbus_message_iter_next(&subs))
 			goto error_recv;
 
+		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_STRING)
+			goto error_parse;
+		dbus_message_iter_get_basic(&subs, &cstp_compr);
+
+		if (!dbus_message_iter_next(&subs))
+			goto error_recv;
+
+		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_STRING)
+			goto error_parse;
+		dbus_message_iter_get_basic(&subs, &dtls_compr);
+
+		if (!dbus_message_iter_next(&subs))
+			goto error_recv;
+
+		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_UINT32)
+			goto error_parse;
+		dbus_message_iter_get_basic(&subs, &mtu);
+
+		if (!dbus_message_iter_next(&subs))
+			goto error_recv;
+
 		if (dbus_message_iter_get_arg_type(&subs) != DBUS_TYPE_UINT32)
 			goto error_parse;
 		dbus_message_iter_get_basic(&subs, &rx);
@@ -769,11 +984,14 @@ int common_info_cmd(DBusMessageIter * args)
 			fprintf(out, "P-t-P IPv6: %s\n", vpn_ptp_ipv6);
 		}
 		fprintf(out, "\tDevice: %s  ", device);
+		if (mtu > 0) {
+			fprintf(out, "MTU: %u\n", (unsigned)mtu);
+		} else {
+			fprintf(out, "MTU: (unknown)\n");
+		}
 
 		if (user_agent != NULL && user_agent[0] != 0)
-			fprintf(out, "User-Agent: %s\n", user_agent);
-		else
-			fprintf(out, "\n");
+			fprintf(out, "\tUser-Agent: %s\n", user_agent);
 
 		if (rx > 0 || tx > 0) {
 			/* print limits */
@@ -800,12 +1018,17 @@ int common_info_cmd(DBusMessageIter * args)
 			fprintf(out, "\tHostname: %s\n", hostname);
 
 		fprintf(out, "\tConnected at: %s (", str_since);
-		print_time_ival7(t, out);
+		print_time_ival7(time(0), t, out);
 		fprintf(out, ")\n");
 
 		fprintf(out, "\tTLS ciphersuite: %s\n", tls_ciphersuite);
 		if (dtls_ciphersuite != NULL && dtls_ciphersuite[0] != 0)
 			fprintf(out, "\tDTLS cipher: %s\n", dtls_ciphersuite);
+
+		if (cstp_compr != NULL && cstp_compr[0] != 0)
+			fprintf(out, "\tCSTP compression: %s\n", cstp_compr);
+		if (dtls_compr != NULL && dtls_compr[0] != 0)
+			fprintf(out, "\tDTLS compression: %s\n", dtls_compr);
 
 		/* user network info */
 		fputs("\n", out);
@@ -826,6 +1049,12 @@ int common_info_cmd(DBusMessageIter * args)
 		if (r == 0) {
 			fprintf(out, "Routes: defaultroute\n");
 		}
+
+		if (!dbus_message_iter_next(&subs))
+			goto error_recv;
+
+		if ((r = print_list_entries(out, "\tNo-routes:", &subs)) < 0)
+			goto error_parse;
 
 		if (!dbus_message_iter_next(&subs))
 			goto error_recv;

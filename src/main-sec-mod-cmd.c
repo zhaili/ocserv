@@ -58,6 +58,7 @@ int handle_sec_mod_commands(main_server_st * s)
 	int ret, raw_len, e;
 	void *pool = talloc_new(s);
 	PROTOBUF_ALLOCATOR(pa, pool);
+	BanIpMsg *tmsg = NULL;
 
 	if (pool == NULL)
 		return -1;
@@ -112,7 +113,6 @@ int handle_sec_mod_commands(main_server_st * s)
 
 	switch (cmd) {
 	case SM_CMD_AUTH_BAN_IP:{
-			BanIpMsg *tmsg;
 			BanIpReplyMsg reply = BAN_IP_REPLY_MSG__INIT;
 
 			tmsg = ban_ip_msg__unpack(&pa, raw_len, raw);
@@ -122,17 +122,18 @@ int handle_sec_mod_commands(main_server_st * s)
 				goto cleanup;
 			}
 			ret = add_ip_to_ban_list(s, tmsg->ip, tmsg->score);
-
-			ban_ip_msg__free_unpacked(tmsg, &pa);
-
 			if (ret < 0) {
 				reply.reply =
 				    AUTH__REP__FAILED;
 			} else {
-				reply.reply =
-				    AUTH__REP__OK;
+				/* no need to send a reply at all */
+				ret = 0;
+				goto cleanup;
 			}
 
+			reply.sid.data = tmsg->sid.data;
+			reply.sid.len = tmsg->sid.len;
+			reply.has_sid = tmsg->has_sid;
 
 			mslog(s, NULL, LOG_DEBUG, "sending msg %s to sec-mod", cmd_request_to_str(SM_CMD_AUTH_BAN_IP_REPLY));
 
@@ -157,6 +158,8 @@ int handle_sec_mod_commands(main_server_st * s)
 
 	ret = 0;
  cleanup:
+	if (tmsg != NULL)
+		ban_ip_msg__free_unpacked(tmsg, &pa);
 	talloc_free(raw);
 	talloc_free(pool);
 
@@ -335,6 +338,8 @@ int session_close(main_server_st * s, struct proc_st *proc)
 
 	proc->bytes_in = msg->bytes_in;
 	proc->bytes_out = msg->bytes_out;
+	if (msg->has_secmod_client_entries)
+		s->secmod_client_entries = msg->secmod_client_entries;
 
 	cli_stats_msg__free_unpacked(msg, &pa);
 

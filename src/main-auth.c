@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013, 2014 Nikos Mavrogiannopoulos
+ * Copyright (C) 2013, 2014, 2015 Nikos Mavrogiannopoulos
+ * Copyright (C) 2014, 2015 Red Hat, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,6 +65,9 @@ int send_cookie_auth_reply(main_server_st* s, struct proc_st* proc,
 		msg.has_session_id = 1;
 		msg.session_id.data = proc->dtls_session_id;
 		msg.session_id.len = sizeof(proc->dtls_session_id);
+
+		msg.sid.data = proc->sid;
+		msg.sid.len = sizeof(proc->sid);
 
 		msg.vname = proc->tun_lease.name;
 		msg.user_name = proc->username;
@@ -246,11 +250,11 @@ struct proc_st *old_proc;
 	/* check for a user with the same sid as in the cookie */
 	old_proc = proc_search_sid(s, cmsg->sid.data);
 	if (old_proc != NULL) {
-		mslog(s, old_proc, LOG_DEBUG, "disconnecting (%u) due to new cookie session",
+		mslog(s, old_proc, LOG_DEBUG, "disconnecting previous user session (%u) due to session re-use",
 			(unsigned)old_proc->pid);
 
 		if (strcmp(proc->username, old_proc->username) != 0) {
-			mslog(s, old_proc, LOG_ERR, "the user of the cookie doesn't match (new: %s)",
+			mslog(s, old_proc, LOG_ERR, "the user of the new session doesn't match the old (new: %s)",
 				proc->username);
 			return -1;
 		}
@@ -260,9 +264,9 @@ struct proc_st *old_proc;
 
 		if (old_proc->pid > 0)
 			kill(old_proc->pid, SIGTERM);
-		mslog(s, proc, LOG_INFO, "resumed cookie session for user '%s' (using %s)", proc->username, proc->tls_ciphersuite);
+		mslog(s, proc, LOG_INFO, "re-using session");
 	} else {
-		mslog(s, proc, LOG_INFO, "new cookie session for user '%s' (using %s)", proc->username, proc->tls_ciphersuite);
+		mslog(s, proc, LOG_INFO, "new user session");
 	}
 
 	if (cmsg->hostname)

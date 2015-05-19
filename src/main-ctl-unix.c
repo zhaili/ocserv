@@ -168,6 +168,7 @@ static void method_status(method_ctx *ctx, int cfd, uint8_t * msg,
 	rep.start_time = ctx->s->start_time;
 	rep.sec_mod_pid = ctx->s->sec_mod_pid;
 	rep.active_clients = ctx->s->active_clients;
+	rep.secmod_client_entries = ctx->s->secmod_client_entries;
 	rep.stored_tls_sessions = ctx->s->tls_db.entries;
 	rep.banned_ips = main_ban_db_elems(ctx->s);
 
@@ -621,16 +622,6 @@ static void method_unban_ip(method_ctx *ctx,
 	}
 
 	return;
-}
-
-static void terminate_proc(main_server_st *s, proc_st *proc)
-{
-	/* if it has an IP, send a signal so that we cleanup
-	 * and get stats properly */
-	if (proc->pid != -1 && proc->pid != 0)
-                kill(proc->pid, SIGTERM);
-	else
-		remove_proc(s, proc, 1);
 }
 
 static void method_disconnect_user_name(method_ctx *ctx,

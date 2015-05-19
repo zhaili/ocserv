@@ -40,6 +40,7 @@
 
 #define CS_AES128_GCM "OC-DTLS1_2-AES128-GCM"
 #define CS_AES256_GCM "OC-DTLS1_2-AES256-GCM"
+#define CS_CHACHA20_POLY1305 "OC-DTLS1_2-CHACHA20-POLY1305"
 
 struct known_urls_st {
 	const char *url;
@@ -76,7 +77,6 @@ const static struct known_urls_st known_urls[] = {
  * HTTP headers (WTF), and the compression negotiation.
  */
 static const dtls_ciphersuite_st ciphersuites[] = {
-#if GNUTLS_VERSION_NUMBER >= 0x030207
 	{
 	 .oc_name = CS_AES128_GCM,
 	 .gnutls_name =
@@ -84,6 +84,7 @@ static const dtls_ciphersuite_st ciphersuites[] = {
 	 .gnutls_version = GNUTLS_DTLS1_2,
 	 .gnutls_mac = GNUTLS_MAC_AEAD,
 	 .gnutls_cipher = GNUTLS_CIPHER_AES_128_GCM,
+	 .txt_version = "3.2.7",
 	 .server_prio = 90},
 	{
 	 .oc_name = CS_AES256_GCM,
@@ -93,8 +94,8 @@ static const dtls_ciphersuite_st ciphersuites[] = {
 	 .gnutls_mac = GNUTLS_MAC_AEAD,
 	 .gnutls_cipher = GNUTLS_CIPHER_AES_256_GCM,
 	 .server_prio = 80,
+	 .txt_version = "3.2.7",
 	 },
-#endif
 	{
 	 .oc_name = "AES128-SHA",
 	 .gnutls_name =
@@ -113,6 +114,18 @@ static const dtls_ciphersuite_st ciphersuites[] = {
 	 .gnutls_cipher = GNUTLS_CIPHER_3DES_CBC,
 	 .server_prio = 1,
 	 },
+#if GNUTLS_VERSION_NUMBER >= 0x030400
+	{
+	 .oc_name = CS_CHACHA20_POLY1305,
+	 .gnutls_name =
+	 "NONE:+VERS-DTLS1.2:+COMP-NULL:+CHACHA20-POLY1305:+AEAD:+RSA:%COMPAT:+SIGN-ALL",
+	 .gnutls_version = GNUTLS_DTLS1_2,
+	 .gnutls_mac = GNUTLS_MAC_AEAD,
+	 .gnutls_cipher = GNUTLS_CIPHER_CHACHA20_POLY1305,
+	 .txt_version = "3.4.0",
+	 .server_prio = 40
+	},
+#endif
 };
 
 #ifdef HAVE_LZ4
@@ -256,6 +269,9 @@ void header_value_check(struct worker_st *ws, struct http_req_st *req)
 			     i < sizeof(ciphersuites) / sizeof(ciphersuites[0]);
 			     i++) {
 				if (strcmp(token, ciphersuites[i].oc_name) == 0) {
+					if (ciphersuites[i].txt_version != NULL && gnutls_check_version(ciphersuites[i].txt_version) == NULL)
+						continue; /* not supported */
+
 					if (cand == NULL ||
 					    cand->server_prio <
 					    ciphersuites[i].server_prio) {

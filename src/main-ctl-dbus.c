@@ -30,6 +30,7 @@
 
 #include <errno.h>
 #include <main-ctl.h>
+#include <main-ban.h>
 #include <dbus/dbus.h>
 #include <str.h>
 
@@ -48,6 +49,9 @@ static void method_status(main_server_st * s, struct dbus_ctx *ctx,
 			  DBusMessage * msg);
 static void method_list_users(main_server_st * s, struct dbus_ctx *ctx,
 			      DBusMessage * msg);
+static void method_unban_ip(main_server_st * s,
+					struct dbus_ctx *ctx,
+					DBusMessage * msg);
 static void method_disconnect_user_name(main_server_st * s,
 					struct dbus_ctx *ctx,
 					DBusMessage * msg);
@@ -63,6 +67,8 @@ static void method_user_info(main_server_st * s, struct dbus_ctx *ctx,
 			     DBusMessage * msg);
 static void method_id_info(main_server_st * s, struct dbus_ctx *ctx,
 			   DBusMessage * msg);
+static void method_list_banned(main_server_st * s, struct dbus_ctx *ctx,
+			      DBusMessage * msg);
 
 typedef void (*method_func) (main_server_st * s, struct dbus_ctx *ctx,
 			     DBusMessage * msg);
@@ -90,12 +96,20 @@ typedef struct {
 #define ENTRY(name, iface, desc, func) \
 	{name, sizeof(name)-1, iface, sizeof(iface)-1, desc, sizeof(desc)-1, func}
 
-#define LIST_USERS_SIG "(issssssssusssss)"
-#define LIST_SINGLE_USER_SIG "(issssssssusssssuuasasasas)"
+#define COMMON_USERS_SIG       "issssssssusssss"
+
+#define LIST_USERS_SIG       "("COMMON_USERS_SIG")"
+#define LIST_SINGLE_USER_SIG "("COMMON_USERS_SIG"ssuuuasasasasas)"
+#define LIST_BANNED_SIG "(usu)"
 
 #define DESC_LIST \
 		"    <method name=\"list\">\n" \
 		"      <arg name=\"user-info\" direction=\"out\" type=\"a"LIST_USERS_SIG"\"/>\n" \
+		"    </method>\n"
+
+#define DESC_LIST_BANNED \
+		"    <method name=\"list\">\n" \
+		"      <arg name=\"banned-info\" direction=\"out\" type=\"a"LIST_BANNED_SIG"\"/>\n" \
 		"    </method>\n"
 
 #define DESC_USER_INFO \
@@ -131,12 +145,21 @@ typedef struct {
 		"      <arg name=\"status\" direction=\"out\" type=\"b\"/>\n" \
 		"    </method>\n"
 
+#define DESC_UNBAN_IP \
+		"    <method name=\"unban_ip\">\n" \
+		"      <arg name=\"user-ip\" direction=\"in\" type=\"s\"/>\n" \
+		"      <arg name=\"status\" direction=\"out\" type=\"b\"/>\n" \
+		"    </method>\n"
+
 #define DESC_STATUS \
 		"    <method name=\"status\">\n" \
 		"      <arg name=\"status\" direction=\"out\" type=\"b\"/>\n" \
 		"      <arg name=\"pid\" direction=\"out\" type=\"u\"/>\n" \
 		"      <arg name=\"sec-mod-pid\" direction=\"out\" type=\"u\"/>\n" \
 		"      <arg name=\"clients\" direction=\"out\" type=\"u\"/>\n" \
+		"      <arg name=\"secmod-client-entries\" direction=\"out\" type=\"u\"/>\n" \
+		"      <arg name=\"tls-sessions\" direction=\"out\" type=\"u\"/>\n" \
+		"      <arg name=\"banned-ips\" direction=\"out\" type=\"u\"/>\n" \
 		"    </method>\n"
 
 static const ctl_method_st methods[] = {
@@ -146,11 +169,14 @@ static const ctl_method_st methods[] = {
 	ENTRY("reload", "org.infradead.ocserv", DESC_RELOAD, method_reload),
 	ENTRY("stop", "org.infradead.ocserv", DESC_RELOAD, method_stop),
 	ENTRY("list", "org.infradead.ocserv", DESC_LIST, method_list_users),
+	ENTRY("list_banned", "org.infradead.ocserv", DESC_LIST_BANNED, method_list_banned),
 	ENTRY("user_info2", "org.infradead.ocserv", DESC_USER_INFO,
 	      method_user_info),
 	ENTRY("id_info2", "org.infradead.ocserv", DESC_ID_INFO, method_id_info),
 	ENTRY("disconnect_name", "org.infradead.ocserv", DESC_DISC_NAME,
 	      method_disconnect_user_name),
+	ENTRY("unban_ip", "org.infradead.ocserv", DESC_UNBAN_IP,
+	      method_unban_ip),
 	ENTRY("disconnect_id", "org.infradead.ocserv", DESC_DISC_ID,
 	      method_disconnect_user_id),
 	{NULL, 0, NULL, 0, NULL}
@@ -276,6 +302,23 @@ static void method_status(main_server_st * s, struct dbus_ctx *ctx,
 	}
 
 	tmp = s->active_clients;
+	if (dbus_message_iter_append_basic(&args, DBUS_TYPE_UINT32, &tmp) == 0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		goto error;
+	}
+
+	tmp = s->secmod_client_entries;
+	if (dbus_message_iter_append_basic(&args, DBUS_TYPE_UINT32, &tmp) == 0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		goto error;
+	}
+
+	tmp = s->tls_db.entries;
+	if (dbus_message_iter_append_basic(&args, DBUS_TYPE_UINT32, &tmp) == 0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		goto error;
+	}
+
 	if (dbus_message_iter_append_basic(&args, DBUS_TYPE_UINT32, &tmp) == 0) {
 		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
 		goto error;
@@ -525,7 +568,26 @@ static int append_user_info(main_server_st * s, DBusMessageIter * subs,
 		return -1;
 	}
 
+
 	if (single > 0) {
+		strtmp = ctmp->cstp_compr;
+		if (dbus_message_iter_append_basic
+		    (subs, DBUS_TYPE_STRING, &strtmp) == 0) {
+			return -1;
+		}
+
+		strtmp = ctmp->dtls_compr;
+		if (dbus_message_iter_append_basic
+		    (subs, DBUS_TYPE_STRING, &strtmp) == 0) {
+			return -1;
+		}
+
+		tmp = ctmp->mtu;
+		if (dbus_message_iter_append_basic
+		    (subs, DBUS_TYPE_UINT32, &tmp) == 0) {
+			return -1;
+		}
+
 		if (ctmp->config.rx_per_sec > 0)
 			tmp = ctmp->config.rx_per_sec;
 		else
@@ -574,6 +636,17 @@ static int append_user_info(main_server_st * s, DBusMessageIter * subs,
 		} else {
 			list = s->config->network.routes;
 			list_size = s->config->network.routes_size;
+		}
+		ret = append_list(subs, list, list_size);
+		if (ret < 0)
+			return ret;
+
+		if (ctmp->config.no_routes_size > 0) {
+			list = ctmp->config.no_routes;
+			list_size = ctmp->config.no_routes_size;
+		} else {
+			list = s->config->network.no_routes;
+			list_size = s->config->network.no_routes_size;
 		}
 		ret = append_list(subs, list, list_size);
 		if (ret < 0)
@@ -661,6 +734,109 @@ static void method_list_users(main_server_st * s, struct dbus_ctx *ctx,
 	return;
 }
 
+static int append_ban_info(main_server_st *s,
+			    DBusMessageIter *suba,
+			    struct ban_entry_st *e)
+{
+	DBusMessageIter subs;
+	dbus_uint32_t t;
+	char *ip;
+
+	if (dbus_message_iter_open_container
+	    (suba, DBUS_TYPE_STRUCT, NULL, &subs) == 0) {
+		mslog(s, NULL, LOG_ERR,
+		      "error appending container to dbus reply");
+		return -1;
+	}
+
+	t = e->score;
+	if (dbus_message_iter_append_basic(&subs, DBUS_TYPE_UINT32, &t) == 0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		return -1;
+	}
+
+	ip = e->ip;
+	if (dbus_message_iter_append_basic(&subs, DBUS_TYPE_STRING, &ip) == 0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		return -1;
+	}
+
+	if (s->config->max_ban_score > 0 && e->score >= s->config->max_ban_score) {
+		t = e->expires;
+	} else {
+		t = 0;
+	}
+
+	if (dbus_message_iter_append_basic(&subs, DBUS_TYPE_UINT32, &t) == 0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		return -1;
+	}
+
+	if (dbus_message_iter_close_container(suba, &subs) == 0) {
+		mslog(s, NULL, LOG_ERR,
+		      "error closing container in dbus reply");
+		return -1;
+	}
+
+	return 0;
+}
+
+static void method_list_banned(main_server_st * s, struct dbus_ctx *ctx,
+			      DBusMessage * msg)
+{
+	DBusMessage *reply;
+	DBusMessageIter args;
+	DBusMessageIter suba;
+	int ret;
+	struct ban_entry_st *e = NULL;
+	struct htable *db = s->ban_db;
+	struct htable_iter iter;
+
+	mslog(s, NULL, LOG_DEBUG, "ctl: list-banned");
+
+	/* no arguments needed */
+	reply = dbus_message_new_method_return(msg);
+	if (reply == NULL) {
+		mslog(s, NULL, LOG_ERR, "error generating dbus reply");
+		return;
+	}
+
+	dbus_message_iter_init_append(reply, &args);
+	if (dbus_message_iter_open_container
+	    (&args, DBUS_TYPE_ARRAY, LIST_BANNED_SIG, &suba) == 0) {
+		mslog(s, NULL, LOG_ERR,
+		      "error appending container to dbus reply");
+		goto error;
+	}
+
+	e = htable_first(db, &iter);
+	while (e != NULL) {
+		ret = append_ban_info(s, &suba, e);
+		if (ret < 0) {
+			mslog(s, NULL, LOG_ERR,
+			      "error appending ban info to reply");
+			goto error;
+		}
+		e = htable_next(db, &iter);
+	}
+
+	if (dbus_message_iter_close_container(&args, &suba) == 0) {
+		mslog(s, NULL, LOG_ERR,
+		      "error closing container in dbus reply");
+		goto error;
+	}
+
+	if (!dbus_connection_send(ctx->conn, reply, NULL)) {
+		mslog(s, NULL, LOG_ERR, "error sending dbus reply");
+		goto error;
+	}
+
+ error:
+	dbus_message_unref(reply);
+
+	return;
+}
+
 static void single_info_common(main_server_st * s, struct dbus_ctx *ctx,
 			       DBusMessage * msg, const char *user, unsigned id)
 {
@@ -673,9 +849,9 @@ static void single_info_common(main_server_st * s, struct dbus_ctx *ctx,
 	struct proc_st *ctmp = NULL;
 
 	if (user != NULL)
-		mslog(s, NULL, LOG_INFO, "providing info for user '%s'", user);
+		mslog(s, NULL, LOG_DEBUG, "providing info for user '%s'", user);
 	else
-		mslog(s, NULL, LOG_INFO, "providing info for ID '%u'", id);
+		mslog(s, NULL, LOG_DEBUG, "providing info for ID '%u'", id);
 
 	/* no arguments needed */
 	reply = dbus_message_new_method_return(msg);
@@ -737,10 +913,10 @@ static void single_info_common(main_server_st * s, struct dbus_ctx *ctx,
 
 	if (found_user == 0) {
 		if (user != NULL)
-			mslog(s, NULL, LOG_INFO, "could not find user '%s'",
+			mslog(s, NULL, LOG_DEBUG, "could not find user '%s'",
 			      user);
 		else
-			mslog(s, NULL, LOG_INFO, "could not find ID '%u'", id);
+			mslog(s, NULL, LOG_DEBUG, "could not find ID '%u'", id);
 	}
 
 	if (!dbus_connection_send(ctx->conn, reply, NULL)) {
@@ -804,6 +980,64 @@ static void method_id_info(main_server_st * s, struct dbus_ctx *ctx,
 	return;
 }
 
+static void method_unban_ip(main_server_st * s,
+			    struct dbus_ctx *ctx,
+			    DBusMessage * msg)
+{
+	DBusMessage *reply;
+	DBusMessageIter args;
+	dbus_bool_t status = 0;
+	char *ip = "";
+
+	mslog(s, NULL, LOG_DEBUG, "ctl: unban_ip");
+
+	if (dbus_message_iter_init(msg, &args) == 0) {
+		mslog(s, NULL, LOG_ERR,
+		      "no arguments provided in unban_ip");
+		return;
+	}
+
+	if (dbus_message_iter_get_arg_type(&args) != DBUS_TYPE_STRING) {
+		mslog(s, NULL, LOG_ERR,
+		      "wrong argument provided in unban_ip");
+		return;
+	}
+
+	dbus_message_iter_get_basic(&args, &ip);
+
+	if (remove_ip_from_ban_list(s, ip) != 0) {
+		if (ip)
+			mslog(s, NULL, LOG_INFO,
+				      "unbanning IP '%s' due to ctl request", ip);
+		status = 1;
+	}
+
+	/* reply */
+	reply = dbus_message_new_method_return(msg);
+	if (reply == NULL) {
+		mslog(s, NULL, LOG_ERR, "error generating dbus reply");
+		return;
+	}
+
+	dbus_message_iter_init_append(reply, &args);
+
+	if (dbus_message_iter_append_basic(&args, DBUS_TYPE_BOOLEAN, &status) ==
+	    0) {
+		mslog(s, NULL, LOG_ERR, "error appending to dbus reply");
+		goto error;
+	}
+
+	if (!dbus_connection_send(ctx->conn, reply, NULL)) {
+		mslog(s, NULL, LOG_ERR, "error sending dbus reply");
+		goto error;
+	}
+
+ error:
+	dbus_message_unref(reply);
+
+	return;
+}
+
 static void method_disconnect_user_name(main_server_st * s,
 					struct dbus_ctx *ctx,
 					DBusMessage * msg)
@@ -833,7 +1067,7 @@ static void method_disconnect_user_name(main_server_st * s,
 	/* got the name. Try to disconnect */
 	list_for_each_safe(&s->proc_list.head, ctmp, cpos, list) {
 		if (strcmp(ctmp->username, name) == 0) {
-			remove_proc(s, ctmp, 1);
+			terminate_proc(s, ctmp);
 			status = 1;
 		}
 	}
@@ -892,7 +1126,7 @@ static void method_disconnect_user_id(main_server_st * s, struct dbus_ctx *ctx,
 	/* got the ID. Try to disconnect */
 	list_for_each_safe(&s->proc_list.head, ctmp, cpos, list) {
 		if (ctmp->pid == id) {
-			remove_proc(s, ctmp, 1);
+			terminate_proc(s, ctmp);
 			status = 1;
 			if (id != -1)
 				break;
@@ -955,6 +1189,8 @@ static void method_introspect(main_server_st * s, struct dbus_ctx *ctx,
 	}
 
 	for (i = 0; methods[i].name != NULL; i++) {
+		if (methods[i].desc == NULL) continue;
+
 		ret =
 		    str_append_data(&buf, methods[i].desc,
 				    methods[i].desc_size);
@@ -1039,7 +1275,7 @@ static void ctl_handle_commands(main_server_st * s, struct ctl_handler_st *ctl)
 
 		for (i = 0;; i++) {
 			if (methods[i].name == NULL) {
-				mslog(s, NULL, LOG_INFO,
+				mslog(s, NULL, LOG_DEBUG,
 				      "unknown D-BUS message: %s.%s: %s",
 				      dbus_message_get_interface(msg),
 				      dbus_message_get_member(msg),
@@ -1132,13 +1368,17 @@ int ctl_handler_init(main_server_st * s)
 	dbus_error_init(&err);
 
 	conn = dbus_bus_get_private(DBUS_BUS_SYSTEM, &err);
-	if (conn == NULL)
+	if (conn == NULL) {
+		mslog(s, NULL, LOG_DEBUG, "error initializing DBUS connection");
 		goto error;
+	}
 
 	ret = dbus_bus_request_name(conn, OCSERV_DBUS_NAME,
 				    DBUS_NAME_FLAG_REPLACE_EXISTING, &err);
-	if (ret != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+	if (ret != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+		mslog(s, NULL, LOG_DEBUG, "error requesting DBUS name");
 		goto error;
+	}
 
 	ctx->conn = conn;
 	s->ctl_ctx = ctx;
@@ -1146,8 +1386,10 @@ int ctl_handler_init(main_server_st * s)
 	if (!dbus_connection_set_watch_functions(conn,
 						 add_watch, remove_watch,
 						 toggle_watch, ctx, NULL)) {
+		mslog(s, NULL, LOG_DEBUG, "error setting DBUS watchers");
 		goto error;
 	}
+	mslog(s, NULL, LOG_DEBUG, "initialized DBUS connection");
 
 
 	return 0;

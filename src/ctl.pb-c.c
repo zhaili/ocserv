@@ -394,7 +394,7 @@ void   unban_req__free_unpacked
   assert(message->base.descriptor == &unban_req__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor status_rep__field_descriptors[7] =
+static const ProtobufCFieldDescriptor status_rep__field_descriptors[8] =
 {
   {
     "status",
@@ -480,12 +480,25 @@ static const ProtobufCFieldDescriptor status_rep__field_descriptors[7] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "secmod_client_entries",
+    9,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(StatusRep, secmod_client_entries),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned status_rep__field_indices_by_name[] = {
   3,   /* field[3] = active_clients */
   6,   /* field[6] = banned_ips */
   1,   /* field[1] = pid */
   2,   /* field[2] = sec_mod_pid */
+  7,   /* field[7] = secmod_client_entries */
   4,   /* field[4] = start_time */
   0,   /* field[0] = status */
   5,   /* field[5] = stored_tls_sessions */
@@ -494,7 +507,7 @@ static const ProtobufCIntRange status_rep__number_ranges[2 + 1] =
 {
   { 1, 0 },
   { 7, 5 },
-  { 0, 7 }
+  { 0, 8 }
 };
 const ProtobufCMessageDescriptor status_rep__descriptor =
 {
@@ -504,7 +517,7 @@ const ProtobufCMessageDescriptor status_rep__descriptor =
   "StatusRep",
   "",
   sizeof(StatusRep),
-  7,
+  8,
   status_rep__field_descriptors,
   status_rep__field_indices_by_name,
   2,  status_rep__number_ranges,

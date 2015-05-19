@@ -98,10 +98,11 @@ struct  _AuthReplyMsg
   char *ipv6_network;
   size_t n_no_routes;
   char **no_routes;
+  ProtobufCBinaryData sid;
 };
 #define AUTH_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&auth_reply_msg__descriptor) \
-    , 0, 0,{0,NULL}, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, NULL, 0,NULL }
+    , 0, 0,{0,NULL}, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, NULL, 0,NULL, {0,NULL} }
 
 
 struct  _SessionResumeFetchMsg
@@ -158,10 +159,14 @@ struct  _CliStatsMsg
   char *remote_ip;
   char *ipv4;
   char *ipv6;
+  protobuf_c_boolean has_invalidate_cookie;
+  protobuf_c_boolean invalidate_cookie;
+  protobuf_c_boolean has_secmod_client_entries;
+  uint32_t secmod_client_entries;
 };
 #define CLI_STATS_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cli_stats_msg__descriptor) \
-    , 0, 0, 0,{0,NULL}, 0, NULL, NULL, NULL }
+    , 0, 0, 0,{0,NULL}, 0, NULL, NULL, NULL, 0,0, 0,0 }
 
 
 struct  _UdpFdMsg
@@ -195,20 +200,24 @@ struct  _BanIpMsg
   ProtobufCMessage base;
   char *ip;
   uint32_t score;
+  protobuf_c_boolean has_sid;
+  ProtobufCBinaryData sid;
 };
 #define BAN_IP_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&ban_ip_msg__descriptor) \
-    , NULL, 0 }
+    , NULL, 0, 0,{0,NULL} }
 
 
 struct  _BanIpReplyMsg
 {
   ProtobufCMessage base;
   AUTHREP reply;
+  protobuf_c_boolean has_sid;
+  ProtobufCBinaryData sid;
 };
 #define BAN_IP_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&ban_ip_reply_msg__descriptor) \
-    , 0 }
+    , 0, 0,{0,NULL} }
 
 
 struct  _SecAuthInitMsg

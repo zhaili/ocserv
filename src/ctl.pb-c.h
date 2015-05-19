@@ -41,10 +41,11 @@ struct  _StatusRep
   uint32_t start_time;
   uint32_t stored_tls_sessions;
   uint32_t banned_ips;
+  uint32_t secmod_client_entries;
 };
 #define STATUS_REP__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&status_rep__descriptor) \
-    , 0, 0, 0, 0, 0, 0, 0 }
+    , 0, 0, 0, 0, 0, 0, 0, 0 }
 
 
 struct  _BoolMsg

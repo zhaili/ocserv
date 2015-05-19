@@ -20,14 +20,14 @@
 
 SERV="${SERV:-../src/ocserv}"
 srcdir=${srcdir:-.}
-PORT=4500
+PORT=4502
 
 . `dirname $0`/common.sh
 
-echo "Testing whether cookies are being re-used... "
+echo "Testing whether cookies are being correctly invalidated... "
 rm -f ${srcdir}/pid1.$$ ${srcdir}/pid2.$$
 
-launch_server -d 1 -f -c ${srcdir}/test-multi-cookie.config & PID=$!
+launch_server -d 1 -f -c ${srcdir}/test-cookie-invalidation.config & PID=$!
 wait_server $PID
 
 echo "Connecting to obtain cookie... "
@@ -40,16 +40,24 @@ fi
 #echo "Cookie: $COOKIE"
 
 echo "Connecting with cookie... "
-echo "test" | $OPENCONNECT -q localhost:$PORT -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --script=/bin/true --verbose --pid-file ${srcdir}/pid1.$$ --background
-CPID=$!
+echo "test" | $OPENCONNECT -q localhost:$PORT -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --script=/bin/true --verbose --pid-file ${srcdir}/pid1.$$ --background >/dev/null 2>&1
 
 sleep 4
 
-echo "Connecting again with same cookie... "
+if [ ! -f ${srcdir}/pid1.$$ ];then
+	fail $PID "It was not possible to establish session!"
+fi
+
+kill -USR1 `cat ${srcdir}/pid1.$$`
+if test $? != 0;then
+	fail $PID "Process could not be killed"
+fi
+
+echo "Terminating and connecting again with same cookie... "
 #( echo "test" | $OPENCONNECT -q localhost:$PORT -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly >/dev/null 2>&1 ) ||
 #	fail $PID "Could not connect to server"
-echo "test" | $OPENCONNECT -q localhost:$PORT -b -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --script=/bin/true --verbose --pid-file ${srcdir}/pid2.$$ --background
-C2PID=$!
+echo "test" | $OPENCONNECT -q localhost:$PORT -b -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --script=/bin/true --verbose --pid-file ${srcdir}/pid2.$$ --background >/dev/null 2>&1
+CPID=$!
 
 sleep 4
 
@@ -57,16 +65,27 @@ if [ ! -f ${srcdir}/pid2.$$ ];then
 	fail $PID "It was not possible to establish session!"
 fi
 
-# checking whether server has already terminated $CPID
-sleep 1
+kill -INT `cat ${srcdir}/pid2.$$`
 
-if [ -f ${srcdir}/pid1.$$ ];then
-	fail $PID "Initial connection was still running!"
+if test $? != 0;then
+	fail $PID "Process could not be killed"
+fi
+
+rm -f ${srcdir}/pid2.$$
+
+echo "Proper termination and connecting again with same (invalidated) cookie... "
+#( echo "test" | $OPENCONNECT -q localhost:$PORT -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly >/dev/null 2>&1 ) ||
+#	fail $PID "Could not connect to server"
+echo "test" | $OPENCONNECT -q localhost:$PORT -b -u test -C "$COOKIE" --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --script=/bin/true --verbose --pid-file ${srcdir}/pid2.$$ --background >/dev/null 2>&1
+
+sleep 4
+
+if [ -f ${srcdir}/pid2.$$ ];then
+	fail $PID "It was possible to establish session!!"
 fi
 
 rm -f ${srcdir}/pid1.$$ ${srcdir}/pid2.$$
 
-kill $C2PID >/dev/null 2>&1
 kill $CPID >/dev/null 2>&1
 kill $PID
 wait

@@ -828,6 +828,7 @@ unsigned i;
 	return retval;
 }
 
+
 size_t tls_get_overhead(gnutls_protocol_t version, gnutls_cipher_algorithm_t cipher, gnutls_mac_algorithm_t mac)
 {
 #if GNUTLS_VERSION_NUMBER >= 0x030207
@@ -840,9 +841,7 @@ unsigned block_size;
 	switch(version) {
 		case GNUTLS_DTLS0_9:
 		case GNUTLS_DTLS1_0:
-#if GNUTLS_VERSION_NUMBER >= 0x030200
 		case GNUTLS_DTLS1_2:
-#endif
 			overhead += 13;
 			break;
 		default:

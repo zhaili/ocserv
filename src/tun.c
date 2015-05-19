@@ -121,6 +121,9 @@ int set_ipv6_addr(main_server_st * s, struct proc_st *proc)
 	rt6.rtmsg_dst_len = 128;
 	rt6.rtmsg_metric = 1;
 
+	/* the ioctl() parameters in linux for ipv6 are
+	 * well hidden. For that one we use SIOCADDRT as
+	 * in busybox. */
 	ret = ioctl(fd, SIOCADDRT, &rt6);
 	if (ret != 0) {
 		e = errno;
@@ -151,6 +154,61 @@ int set_ipv6_addr(main_server_st * s, struct proc_st *proc)
 
 	return ret;
 }
+
+static void reset_ipv6_addr(struct proc_st *proc)
+{
+	int fd, ret;
+	struct in6_ifreq ifr6;
+	struct in6_rtmsg rt6;
+	struct ifreq ifr;
+	unsigned idx;
+
+	if (proc->ipv6 == NULL || proc->ipv6->lip_len == 0)
+		return;
+
+	fd = socket(AF_INET6, SOCK_STREAM, 0);
+	if (fd == -1) {
+		return;
+	}
+
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, proc->tun_lease.name, IFNAMSIZ);
+
+	ret = ioctl(fd, SIOGIFINDEX, &ifr);
+	if (ret != 0) {
+		goto cleanup;
+	}
+
+	idx = ifr.ifr_ifindex;
+
+	memset(&ifr6, 0, sizeof(ifr6));
+	memcpy(&ifr6.ifr6_addr, SA_IN6_P(&proc->ipv6->lip),
+	       SA_IN_SIZE(proc->ipv6->lip_len));
+	ifr6.ifr6_ifindex = idx;
+	ifr6.ifr6_prefixlen = 128;
+
+	ret = ioctl(fd, SIOCDIFADDR, &ifr6);
+	if (ret != 0) {
+		goto cleanup;
+	}
+
+	/* route to our remote address */
+	memset(&rt6, 0, sizeof(rt6));
+	memcpy(&rt6.rtmsg_dst, SA_IN6_P(&proc->ipv6->rip),
+	       SA_IN_SIZE(proc->ipv6->rip_len));
+	rt6.rtmsg_ifindex = idx;
+	rt6.rtmsg_dst_len = 128;
+	rt6.rtmsg_metric = 1;
+
+	ret = ioctl(fd, SIOCDELRT, &rt6);
+	if (ret != 0) {
+		goto cleanup;
+	}
+
+ cleanup:
+	close(fd);
+}
+
 #elif defined(SIOCAIFADDR_IN6)
 
 #include <netinet6/nd6.h>
@@ -220,11 +278,41 @@ int set_ipv6_addr(main_server_st * s, struct proc_st *proc)
 
 	return ret;
 }
+
+static void reset_ipv6_addr(struct proc_st *proc)
+{
+	struct in6_ifreq ifr6;
+	int fd;
+
+	if (proc->ipv6 == NULL || proc->ipv6->lip_len == 0)
+		return;
+
+	fd = socket(AF_INET6, SOCK_DGRAM, 0);
+
+	if (fd >= 0) {
+		memset(&ifr6, 0, sizeof(ifr6));
+		strlcpy(ifr6.ifr_name, proc->tun_lease.name, IFNAMSIZ);
+
+		memcpy(&ifr6.ifr_addr.sin6_addr, SA_IN6_P(&proc->ipv6->lip),
+			SA_IN_SIZE(proc->ipv6->lip_len));
+		ifr6.ifr_addr.sin6_len = sizeof(struct sockaddr_in6);
+		ifr6.ifr_addr.sin6_family = AF_INET6;
+
+		ioctl(fd, SIOCDIFADDR_IN6, &ifr6);
+		close(fd);
+	}
+}
+
 #else
 #warning "No IPv6 support on this platform"
 static int set_ipv6_addr(main_server_st * s, struct proc_st *proc)
 {
 	return -1;
+}
+
+static void reset_ipv6_addr(struct proc_st *proc)
+{
+	return;
 }
 
 #endif
@@ -345,38 +433,38 @@ static int set_network_info(main_server_st * s, struct proc_st *proc)
 #ifndef __linux__
 static int bsd_open_tun(void)
 {
-        int fd;
-        int s;
+	int fd;
+	int s;
 	char tun_name[80];
-        struct ifreq ifr;
+	struct ifreq ifr;
 	int unit_nr = 0;
 
-        fd = open("/dev/tun", O_RDWR);
-        if (fd == -1) {
-        	/* try iterating */
+	fd = open("/dev/tun", O_RDWR);
+	if (fd == -1) {
+		/* try iterating */
 		for (unit_nr = 0; unit_nr < 255; unit_nr++) {
 			snprintf(tun_name, sizeof(tun_name), "/dev/tun%d", unit_nr);
 			fd = open(tun_name, O_RDWR);
 # ifdef SIOCIFCREATE
 			if (fd == -1) {
 				/* cannot open tunXX, try creating it */
-		                s = socket(AF_INET, SOCK_DGRAM, 0);
-		                if (s < 0)
-		                        return -1;
+				s = socket(AF_INET, SOCK_DGRAM, 0);
+				if (s < 0)
+					return -1;
 
-		                memset(&ifr, 0, sizeof(ifr));
-		                strncpy(ifr.ifr_name, tun_name + 5, sizeof(ifr.ifr_name) - 1);
-		                if (!ioctl(s, SIOCIFCREATE, &ifr))
-                		        fd = open(tun_name, O_RDWR);
-		                close(s);
+				memset(&ifr, 0, sizeof(ifr));
+				strncpy(ifr.ifr_name, tun_name + 5, sizeof(ifr.ifr_name) - 1);
+				if (!ioctl(s, SIOCIFCREATE, &ifr))
+					fd = open(tun_name, O_RDWR);
+				close(s);
 			}
 # endif
 			if (fd >= 0)
 				break;
 		}
-        }
+	}
 
-        return fd;
+	return fd;
 }
 #endif
 
@@ -419,7 +507,7 @@ int open_tun(main_server_st * s, struct proc_st *proc)
 		goto fail;
 	}
 	memcpy(proc->tun_lease.name, ifr.ifr_name, IFNAMSIZ);
-	mslog(s, proc, LOG_INFO, "assigning tun device %s\n",
+	mslog(s, proc, LOG_DEBUG, "assigning tun device %s\n",
 	      proc->tun_lease.name);
 
 	/* we no longer use persistent tun */
@@ -475,6 +563,20 @@ int open_tun(main_server_st * s, struct proc_st *proc)
 		strlcpy(proc->tun_lease.name, devname(st.st_rdev, S_IFCHR), sizeof(proc->tun_lease.name));
 	}
 
+#ifdef TUNSIFHEAD
+	{
+		int i = 1;
+
+		ret = ioctl(tunfd, TUNSIFHEAD, &i);
+		if (ret < 0) {
+			e = errno;
+			mslog(s, NULL, LOG_ERR, "%s: TUNSIFHEAD: %s\n",
+			      proc->tun_lease.name, strerror(e));
+			goto fail;
+		}
+	}
+#endif /* TUNSIFHEAD */
+
 	set_cloexec_flag(tunfd, 1);
 #endif
 
@@ -513,7 +615,7 @@ void close_tun(main_server_st * s, struct proc_st *proc)
 	if (proc->tun_lease.name[0] != 0) {
 		fd = socket(AF_INET, SOCK_DGRAM, 0);
 		if (fd == -1)
-			return -1;
+			return;
 
 		memset(&ifr, 0, sizeof(struct ifreq));
 		strlcpy(ifr.ifr_name, proc->tun_lease.name, IFNAMSIZ);
@@ -531,6 +633,53 @@ void close_tun(main_server_st * s, struct proc_st *proc)
 #endif
 
 	return;
+}
+
+static void reset_ipv4_addr(struct proc_st *proc)
+{
+	int fd;
+
+	if (proc->ipv4 == NULL || proc->ipv4->lip_len == 0)
+		return;
+	
+#if defined(SIOCDIFADDR) && !defined(__linux__)
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if (fd >= 0) {
+		struct ifreq ifr;
+
+		memset(&ifr, 0, sizeof(ifr));
+		strlcpy(ifr.ifr_name, proc->tun_lease.name, IFNAMSIZ);
+
+		memcpy(&ifr.ifr_addr, &proc->ipv4->lip, proc->ipv4->lip_len);
+		ifr.ifr_addr.sa_len = sizeof(struct sockaddr_in);
+		ifr.ifr_addr.sa_family = AF_INET;
+
+		ioctl(fd, SIOCDIFADDR, &ifr);
+		close(fd);
+	}
+#elif defined(__linux__)
+	fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd >= 0) {
+		struct ifreq ifr;
+
+		strlcpy(ifr.ifr_name, proc->tun_lease.name, IFNAMSIZ);
+		memcpy(&ifr.ifr_addr, &proc->ipv4->lip, proc->ipv4->lip_len);
+		ifr.ifr_addr.sa_family = AF_INET;
+
+		ioctl(fd, SIOCDIFADDR, &ifr);
+
+		close(fd);
+	}
+#endif
+}
+
+void reset_tun(struct proc_st* proc)
+{
+	if (proc->tun_lease.name[0] != 0) {
+		reset_ipv4_addr(proc);
+		reset_ipv6_addr(proc);
+	}
 }
 
 #if defined(__OpenBSD__) || defined(TUNSIFHEAD)
