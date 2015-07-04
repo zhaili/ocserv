@@ -6,7 +6,7 @@ AM_CPPFLAGS = -I$(srcdir)/../gl/ -I$(builddir)/../gl/ \
 	$(LIBPROTOBUF_C_CFLAGS) $(LIBLZ4_CFLAGS) \
 	$(LIBNL3_CFLAGS) $(LIBREADLINE_CFLAGS) \
 	$(LIBTALLOC_CFLAGS) $(LIBDBUS_CFLAGS) \
-	$(LIBKRB5_CFLAGS) $(LIBTASN1_CFLAGS)
+	$(LIBKRB5_CFLAGS) $(LIBTASN1_CFLAGS) $(RADCLI_CFLAGS)
 
 BUILT_SOURCES = ocpasswd-args.c ocpasswd-args.h \
 	ocserv-args.c ocserv-args.h ipc.pb-c.c ipc.pb-c.h \
@@ -64,13 +64,14 @@ COMMON_SOURCES=common.c common.h system.c system.h setproctitle.c setproctitle.h
 
 # Authentication module sources
 AUTH_SOURCES=auth/pam.c auth/pam.h auth/plain.c auth/plain.h auth/radius.c auth/radius.h \
-	auth/common.c auth/common.h auth/gssapi.h auth/gssapi.c
+	auth/common.c auth/common.h auth/gssapi.h auth/gssapi.c auth-unix.c \
+	auth-unix.h
 
 ACCT_SOURCES=acct/pam.c acct/pam.h acct/radius.c acct/radius.h
 
 ocserv_SOURCES = main.c main-auth.c worker-vpn.c worker-auth.c tlslib.c \
 	cookies.c main-misc.c ip-lease.c ip-lease.h \
-	vpn.h cookies.h tlslib.h log.c tun.c tun.h \
+	vpn.h cookies.h tlslib.h log.c tun.c tun.h config-kkdcp.c \
 	config.c worker-resume.c worker.h main-resume.c main.h \
 	worker-extras.c html.c html.h worker-http.c \
 	main-user.c worker-misc.c route-add.c route-add.h worker-privs.c \
@@ -81,9 +82,9 @@ ocserv_SOURCES = main.c main-auth.c worker-vpn.c worker-auth.c tlslib.c \
 	sup-config/file.c sup-config/file.h main-sec-mod-cmd.c \
 	sup-config/radius.c sup-config/radius.h \
 	worker-bandwidth.c worker-bandwidth.h ctl.h main-ctl.h \
-	vasprintf.c vasprintf.h cfg.h \
+	vasprintf.c vasprintf.h \
 	proc-search.c proc-search.h http-heads.h \
-	main-ban.c main-ban.h \
+	main-ban.c main-ban.h common-config.h \
 	str.c str.h gettime.h $(CCAN_SOURCES) $(HTTP_PARSER_SOURCES) \
 	$(PROTOBUF_SOURCES) sec-mod-acct.h
 
@@ -101,7 +102,7 @@ ocserv_LDADD = ../gl/libgnu.a $(NEEDED_LIBOPTS) libcmd-ocserv.a
 ocserv_LDADD += $(LIBGNUTLS_LIBS) $(PAM_LIBS) $(LIBUTIL) \
 	$(LIBSECCOMP) $(LIBWRAP) $(LIBCRYPT) $(NEEDED_HTTP_PARSER_LIBS) \
 	$(LIBPROTOBUF_C_LIBS) $(LIBSYSTEMD) $(LIBTALLOC_LIBS) \
-	$(FREERADIUS_CLIENT_LIBS) $(LIBLZ4_LIBS) $(LIBKRB5_LIBS) \
+	$(RADCLI_LIBS) $(LIBLZ4_LIBS) $(LIBKRB5_LIBS) \
 	$(LIBTASN1_LIBS)
 
 
@@ -127,19 +128,12 @@ ocpasswd-args.h: ocpasswd-args.c
 
 occtl_SOURCES = occtl.c occtl-pager.c occtl.h occtl-time.c occtl-cache.c occtl-ip-cache.c \
 	occtl-nl.c ctl.h ctl.pb-c.c ctl.pb-c.h $(CCAN_SOURCES) $(COMMON_SOURCES) \
-	$(PROTOBUF_SOURCES)
+	occtl-print.c common-json.c common-json.h $(PROTOBUF_SOURCES)
 occtl_LDADD = ../gl/libgnu.a $(LIBREADLINE_LIBS) \
 	$(LIBNL3_LIBS) $(LIBPROTOBUF_C_LIBS) $(LIBTALLOC_LIBS)
 
-if HAVE_DBUS
-ocserv_SOURCES += main-ctl-dbus.c
-occtl_SOURCES += occtl-dbus.c
-ocserv_LDADD += $(LIBDBUS_LIBS)
-occtl_LDADD += $(LIBDBUS_LIBS)
-else
 ocserv_SOURCES += main-ctl-unix.c
 occtl_SOURCES += occtl-unix.c
-endif
 
 ipc.pb-c.c: ipc.proto
 	protoc-c --c_out=. --proto_path=$(srcdir) $<

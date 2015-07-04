@@ -77,9 +77,20 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+check_PROGRAMS = ipv4-prefix$(EXEEXT) ipv6-prefix$(EXEEXT) \
+	kkdcp-parsing$(EXEEXT) json-escape$(EXEEXT)
+TESTS = test-pass test-pass-cert test-cert test-iroute \
+	test-pass-script test-multi-cookie full-test test-group-pass \
+	test-pass-group-cert ocpasswd-test \
+	test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
+	test-cookie-timeout test-cookie-timeout-2 test-explicit-ip \
+	radius-test test-gssapi kerberos-test pam-test test-ban \
+	test-sighup ipv4-prefix$(EXEEXT) radius-test-config \
+	kkdcp-parsing$(EXEEXT) json-escape$(EXEEXT) test-enc-key
 subdir = tests
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(dist_check_SCRIPTS) $(top_srcdir)/build-aux/test-driver
+	$(dist_check_SCRIPTS) $(top_srcdir)/build-aux/depcomp \
+	$(top_srcdir)/build-aux/test-driver
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/libopts/m4/libopts.m4 \
 	$(top_srcdir)/libopts/m4/stdnoreturn.m4 \
@@ -129,6 +140,22 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
+am__dirstamp = $(am__leading_dot)dirstamp
+am_ipv4_prefix_OBJECTS = ../src/common.$(OBJEXT) ipv4-prefix.$(OBJEXT)
+ipv4_prefix_OBJECTS = $(am_ipv4_prefix_OBJECTS)
+am__DEPENDENCIES_1 =
+ipv4_prefix_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_1)
+am_ipv6_prefix_OBJECTS = ../src/common.$(OBJEXT) ipv6-prefix.$(OBJEXT)
+ipv6_prefix_OBJECTS = $(am_ipv6_prefix_OBJECTS)
+ipv6_prefix_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_1)
+am_json_escape_OBJECTS = ../src/common-json.$(OBJEXT) \
+	json-escape.$(OBJEXT)
+json_escape_OBJECTS = $(am_json_escape_OBJECTS)
+json_escape_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_1)
+am_kkdcp_parsing_OBJECTS = ../src/config-kkdcp.$(OBJEXT) \
+	kkdcp-parsing.$(OBJEXT)
+kkdcp_parsing_OBJECTS = $(am_kkdcp_parsing_OBJECTS)
+kkdcp_parsing_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_1)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -141,8 +168,26 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-SOURCES =
-DIST_SOURCES =
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
+depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
+am__depfiles_maybe = depfiles
+am__mv = mv -f
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+AM_V_CC = $(am__v_CC_@AM_V@)
+am__v_CC_ = $(am__v_CC_@AM_DEFAULT_V@)
+am__v_CC_0 = @echo "  CC      " $@;
+am__v_CC_1 = 
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+AM_V_CCLD = $(am__v_CCLD_@AM_V@)
+am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
+am__v_CCLD_0 = @echo "  CCLD    " $@;
+am__v_CCLD_1 = 
+SOURCES = $(ipv4_prefix_SOURCES) $(ipv6_prefix_SOURCES) \
+	$(json_escape_SOURCES) $(kkdcp_parsing_SOURCES)
+DIST_SOURCES = $(ipv4_prefix_SOURCES) $(ipv6_prefix_SOURCES) \
+	$(json_escape_SOURCES) $(kkdcp_parsing_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -436,7 +481,6 @@ CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
-DBUS_CONFIG_DIR = @DBUS_CONFIG_DIR@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
@@ -451,8 +495,6 @@ EOVERFLOW_HIDDEN = @EOVERFLOW_HIDDEN@
 EOVERFLOW_VALUE = @EOVERFLOW_VALUE@
 ERRNO_H = @ERRNO_H@
 EXEEXT = @EXEEXT@
-FREERADIUS_CLIENT_CFLAGS = @FREERADIUS_CLIENT_CFLAGS@
-FREERADIUS_CLIENT_LIBS = @FREERADIUS_CLIENT_LIBS@
 GNULIB_ATOLL = @GNULIB_ATOLL@
 GNULIB_CALLOC_POSIX = @GNULIB_CALLOC_POSIX@
 GNULIB_CANONICALIZE_FILE_NAME = @GNULIB_CANONICALIZE_FILE_NAME@
@@ -819,8 +861,6 @@ LIBC = @LIBC@
 LIBCRYPT = @LIBCRYPT@
 LIBCRYPT_PREFIX = @LIBCRYPT_PREFIX@
 LIBC_PREFIX = @LIBC_PREFIX@
-LIBDBUS_CFLAGS = @LIBDBUS_CFLAGS@
-LIBDBUS_LIBS = @LIBDBUS_LIBS@
 LIBGNUTLS_CFLAGS = @LIBGNUTLS_CFLAGS@
 LIBGNUTLS_LIBS = @LIBGNUTLS_LIBS@
 LIBGNU_LIBDEPS = @LIBGNU_LIBDEPS@
@@ -917,6 +957,8 @@ PRAGMA_COLUMNS = @PRAGMA_COLUMNS@
 PRAGMA_SYSTEM_HEADER = @PRAGMA_SYSTEM_HEADER@
 PTHREAD_H_DEFINES_STRUCT_TIMESPEC = @PTHREAD_H_DEFINES_STRUCT_TIMESPEC@
 PTRDIFF_T_SUFFIX = @PTRDIFF_T_SUFFIX@
+RADCLI_CFLAGS = @RADCLI_CFLAGS@
+RADCLI_LIBS = @RADCLI_LIBS@
 RANLIB = @RANLIB@
 REPLACE_CALLOC = @REPLACE_CALLOC@
 REPLACE_CANONICALIZE_FILE_NAME = @REPLACE_CANONICALIZE_FILE_NAME@
@@ -1115,7 +1157,8 @@ EXTRA_DIST = ca-key.pem ca.pem common.sh server-cert.pem server-key.pem test1.co
 	test-explicit-ip user-config-explicit/test2 user-config-explicit/test3 \
 	user-config-explicit/test4 test-pass-opt-cert.config test-gssapi.config \
 	test-ban.config test-sighup.config test-gssapi-local-map.config \
-	test-cookie-invalidation.config
+	test-cookie-invalidation.config test-enc-key2.config test-enc-key.config \
+	server-key-ossl.pem server-key-p8.pem
 
 SUBDIRS = docker-ocserv docker-kerberos
 dist_check_SCRIPTS = test-pass test-pass-cert test-cert test-iroute test-pass-script \
@@ -1123,21 +1166,31 @@ dist_check_SCRIPTS = test-pass test-pass-cert test-cert test-iroute test-pass-sc
 	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
 	test-cookie-timeout test-cookie-timeout-2 radius-test test-explicit-ip \
 	radius-test test-gssapi kerberos-test pam-test test-ban test-sighup \
-	test-cookie-invalidation
+	test-cookie-invalidation radius-test-config test-enc-key
 
-TESTS = test-pass test-pass-cert test-cert test-iroute test-pass-script \
-	test-multi-cookie full-test test-group-pass test-pass-group-cert \
-	ocpasswd-test test-pass-group-cert-no-pass unix-test test-pass-opt-cert \
-	test-cookie-timeout test-cookie-timeout-2 test-explicit-ip radius-test \
-	test-gssapi kerberos-test pam-test test-ban test-sighup
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/src/ \
+	-I$(top_builddir)/src/ \
+	-I$(top_srcdir)/gl/ \
+	-I$(top_builddir)/gl/ \
+	-I$(top_srcdir)/ \
+	-I$(top_builddir)/
 
+kkdcp_parsing_SOURCES = ../src/config-kkdcp.c kkdcp-parsing.c
+kkdcp_parsing_LDADD = ../gl/libgnu.a $(LIBTALLOC_LIBS)
+json_escape_SOURCES = ../src/common-json.c json-escape.c
+json_escape_LDADD = ../gl/libgnu.a $(LIBTALLOC_LIBS)
+ipv4_prefix_SOURCES = ../src/common.c ../src/common.h ipv4-prefix.c
+ipv4_prefix_LDADD = ../gl/libgnu.a $(LIBTALLOC_LIBS)
+ipv6_prefix_SOURCES = ../src/common.c ../src/common.h ipv6-prefix.c
+ipv6_prefix_LDADD = ../gl/libgnu.a $(LIBTALLOC_LIBS)
 TESTS_ENVIRONMENT = srcdir="$(srcdir)" \
 	top_builddir="$(top_builddir)"
 
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .log .test .test$(EXEEXT) .trs
+.SUFFIXES: .c .log .o .obj .test .test$(EXEEXT) .trs
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -1168,6 +1221,68 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
+
+clean-checkPROGRAMS:
+	-test -z "$(check_PROGRAMS)" || rm -f $(check_PROGRAMS)
+../src/$(am__dirstamp):
+	@$(MKDIR_P) ../src
+	@: > ../src/$(am__dirstamp)
+../src/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) ../src/$(DEPDIR)
+	@: > ../src/$(DEPDIR)/$(am__dirstamp)
+../src/common.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
+
+ipv4-prefix$(EXEEXT): $(ipv4_prefix_OBJECTS) $(ipv4_prefix_DEPENDENCIES) $(EXTRA_ipv4_prefix_DEPENDENCIES) 
+	@rm -f ipv4-prefix$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ipv4_prefix_OBJECTS) $(ipv4_prefix_LDADD) $(LIBS)
+
+ipv6-prefix$(EXEEXT): $(ipv6_prefix_OBJECTS) $(ipv6_prefix_DEPENDENCIES) $(EXTRA_ipv6_prefix_DEPENDENCIES) 
+	@rm -f ipv6-prefix$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ipv6_prefix_OBJECTS) $(ipv6_prefix_LDADD) $(LIBS)
+../src/common-json.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
+
+json-escape$(EXEEXT): $(json_escape_OBJECTS) $(json_escape_DEPENDENCIES) $(EXTRA_json_escape_DEPENDENCIES) 
+	@rm -f json-escape$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(json_escape_OBJECTS) $(json_escape_LDADD) $(LIBS)
+../src/config-kkdcp.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
+
+kkdcp-parsing$(EXEEXT): $(kkdcp_parsing_OBJECTS) $(kkdcp_parsing_DEPENDENCIES) $(EXTRA_kkdcp_parsing_DEPENDENCIES) 
+	@rm -f kkdcp-parsing$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(kkdcp_parsing_OBJECTS) $(kkdcp_parsing_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+	-rm -f ../src/*.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/common-json.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/common.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/config-kkdcp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ipv4-prefix.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ipv6-prefix.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/json-escape.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/kkdcp-parsing.Po@am__quote@
+
+.c.o:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
+
+.c.obj:
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -1398,7 +1513,7 @@ check-TESTS:
 	log_list=`echo $$log_list`; trs_list=`echo $$trs_list`; \
 	$(MAKE) $(AM_MAKEFLAGS) $(TEST_SUITE_LOG) TEST_LOGS="$$log_list"; \
 	exit $$?;
-recheck: all $(dist_check_SCRIPTS)
+recheck: all $(check_PROGRAMS) $(dist_check_SCRIPTS)
 	@test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
 	@set +e; $(am__set_TESTS_bases); \
 	bases=`for i in $$bases; do echo $$i; done \
@@ -1563,6 +1678,41 @@ test-sighup.log: test-sighup
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+ipv4-prefix.log: ipv4-prefix$(EXEEXT)
+	@p='ipv4-prefix$(EXEEXT)'; \
+	b='ipv4-prefix'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+radius-test-config.log: radius-test-config
+	@p='radius-test-config'; \
+	b='radius-test-config'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+kkdcp-parsing.log: kkdcp-parsing$(EXEEXT)
+	@p='kkdcp-parsing$(EXEEXT)'; \
+	b='kkdcp-parsing'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+json-escape.log: json-escape$(EXEEXT)
+	@p='json-escape$(EXEEXT)'; \
+	b='json-escape'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test-enc-key.log: test-enc-key
+	@p='test-enc-key'; \
+	b='test-enc-key'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -1634,7 +1784,8 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) $(dist_check_SCRIPTS)
+	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS) \
+	  $(dist_check_SCRIPTS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-recursive
 all-am: Makefile
@@ -1669,17 +1820,21 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f ../src/$(DEPDIR)/$(am__dirstamp)
+	-rm -f ../src/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-generic mostlyclean-am
+clean-am: clean-checkPROGRAMS clean-generic mostlyclean-am
 
 distclean: distclean-recursive
+	-rm -rf ../src/$(DEPDIR) ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-tags
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-tags
 
 dvi: dvi-recursive
 
@@ -1722,12 +1877,13 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-recursive
+	-rm -rf ../src/$(DEPDIR) ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-recursive
 
-mostlyclean-am: mostlyclean-generic
+mostlyclean-am: mostlyclean-compile mostlyclean-generic
 
 pdf: pdf-recursive
 
@@ -1742,15 +1898,16 @@ uninstall-am:
 .MAKE: $(am__recursive_targets) check-am install-am install-strip
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am check \
-	check-TESTS check-am clean clean-generic cscopelist-am ctags \
-	ctags-am distclean distclean-generic distclean-tags distdir \
-	dvi dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
+	check-TESTS check-am clean clean-checkPROGRAMS clean-generic \
+	cscopelist-am ctags ctags-am distclean distclean-compile \
+	distclean-generic distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic pdf pdf-am ps ps-am recheck tags tags-am \
 	uninstall uninstall-am
 

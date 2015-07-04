@@ -24,8 +24,10 @@
 #include <syslog.h>
 #include <vpn.h>
 #include "pam.h"
-#include "cfg.h"
+#include "common-config.h"
+#include "auth-unix.h"
 #include <sec-mod-auth.h>
+#include <ccan/hash/hash.h>
 
 #ifdef HAVE_PAM
 
@@ -44,6 +46,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include "auth/pam.h"
+#include "auth-unix.h"
 
 #define PAM_STACK_SIZE (96*1024)
 
@@ -80,13 +83,19 @@ unsigned i;
 				break;
 			case PAM_PROMPT_ECHO_OFF:
 			case PAM_PROMPT_ECHO_ON:
-				syslog(LOG_DEBUG, "PAM-auth conv: echo-%s, sent: %d", (msg[i]->msg_style==PAM_PROMPT_ECHO_ON)?"on":"off", pctx->sent_msg);
-
 				if (pctx->sent_msg == 0) {
 					/* no message, just asking for password */
 					str_reset(&pctx->msg);
 					pctx->sent_msg = 1;
+
 				}
+
+				if (msg[i]->msg) {
+					str_append_str(&pctx->msg, msg[i]->msg);
+				}
+
+				syslog(LOG_DEBUG, "PAM-auth conv: echo-%s, msg: '%s'", (msg[i]->msg_style==PAM_PROMPT_ECHO_ON)?"on":"off", msg[i]->msg!=NULL?msg[i]->msg:"");
+
 				pctx->state = PAM_S_WAIT_FOR_PASS;
 				pctx->cr_ret = PAM_SUCCESS;
 				co_resume();
@@ -141,7 +150,7 @@ wait:
 	}
 }
 
-static int pam_auth_init(void** ctx, void *pool, const char* user, const char* ip)
+static int pam_auth_init(void** ctx, void *pool, const char* user, const char* ip, const char *our_ip, unsigned pid)
 {
 int pret;
 struct pam_ctx_st * pctx;
@@ -186,12 +195,12 @@ fail1:
 	return -1;
 }
 
-static int pam_auth_msg(void* ctx, void *pool, char** msg)
+static int pam_auth_msg(void* ctx, void *pool, passwd_msg_st *pst)
 {
 struct pam_ctx_st * pctx = ctx;
+size_t prompt_hash = 0;
 
 	if (pctx->state != PAM_S_INIT && pctx->state != PAM_S_WAIT_FOR_PASS) {
-		*msg = NULL;
 		return 0;
 	}
 
@@ -206,19 +215,27 @@ struct pam_ctx_st * pctx = ctx;
 		}
 	}
 
-	if (msg != NULL) {
-		if (pctx->msg.length == 0)
-                        if (pctx->changing)
-				*msg = talloc_strdup(pool, "Please enter the new password.");
-                        else
-				*msg = talloc_strdup(pool, "Please enter your password.");
-		else {
-			if (str_append_data(&pctx->msg, "\0", 1) < 0)
-				return -1;
+	if (pctx->msg.length == 0) {
+                if (pctx->changing)
+			pst->msg_str = talloc_strdup(pool, "Please enter the new password.");
+                /* else use the default prompt */
+	} else {
+		if (str_append_data(&pctx->msg, "\0", 1) < 0)
+			return -1;
 
-			*msg = talloc_strdup(pool, (char*)pctx->msg.data);
-		}
+		prompt_hash = hash_any(pctx->msg.data, pctx->msg.length, 0);
+
+		pst->msg_str = talloc_strdup(pool, (char*)pctx->msg.data);
 	}
+
+	pst->counter = pctx->passwd_counter;
+
+	/* differentiate password prompts, if the hash of the prompt
+	 * is different. 
+	 */
+	if (pctx->prev_prompt_hash != prompt_hash)
+		pctx->passwd_counter++;
+	pctx->prev_prompt_hash = prompt_hash;
 
 	return 0;
 }
@@ -258,50 +275,9 @@ struct pam_ctx_st * pctx = ctx;
  */
 static int pam_auth_group(void* ctx, const char *suggested, char *groupname, int groupname_size)
 {
-struct passwd * pwd;
-struct pam_ctx_st * pctx = ctx;
-struct group *grp;
-int ret;
-unsigned found;
+	struct pam_ctx_st * pctx = ctx;
 
-	groupname[0] = 0;
-
-	pwd = getpwnam(pctx->username);
-	if (pwd != NULL) {
-		if (suggested != NULL) {
-			gid_t groups[MAX_GROUPS];
-			int ngroups = sizeof(groups)/sizeof(groups[0]);
-			unsigned i;
-
-			ret = getgrouplist(pctx->username, pwd->pw_gid, groups, &ngroups);
-			if (ret <= 0) {
-				return 0;
-			}
-
-			found = 0;
-			for (i=0;i<ngroups;i++) {
-				grp = getgrgid(groups[i]);
-				if (grp != NULL && strcmp(suggested, grp->gr_name) == 0) {
-					strlcpy(groupname, grp->gr_name, groupname_size);
-					found = 1;
-					break;
-				}
-			}
-
-			if (found == 0) {
-				syslog(LOG_AUTH,
-				       "user '%s' requested group '%s' but is not a member",
-				       pctx->username, suggested);
-				return -1;
-			}
-		} else {
-			struct group* grp = getgrgid(pwd->pw_gid);
-			if (grp != NULL)
-				strlcpy(groupname, grp->gr_name, groupname_size);
-		}
-	}
-
-	return 0;
+	return get_user_auth_group(pctx->username, suggested, groupname, groupname_size);
 }
 
 static int pam_auth_user(void* ctx, char *username, int username_size)
@@ -341,33 +317,13 @@ struct pam_ctx_st * pctx = ctx;
 
 static void pam_group_list(void *pool, void *_additional, char ***groupname, unsigned *groupname_size)
 {
-	struct group *grp;
 	struct pam_cfg_st *config = _additional;
 	gid_t min = 0;
 
 	if (config)
 		min = config->gid_min;
 
-	setgrent();
-
-	*groupname_size = 0;
-	*groupname = talloc_size(pool, sizeof(char*)*MAX_GROUPS);
-	if (*groupname == NULL) {
-		goto exit;
-	}
-
-	while((grp = getgrent()) != NULL && (*groupname_size) < MAX_GROUPS) {
-		if (grp->gr_gid >= min) {
-			(*groupname)[(*groupname_size)] = talloc_strdup(*groupname, grp->gr_name);
-			if ((*groupname)[(*groupname_size)] == NULL)
-				break;
-			(*groupname_size)++;
-		}
-	}
-
- exit:
-	endgrent();
-	return;
+	unix_group_list(pool, min, groupname, groupname_size);
 }
 
 const struct auth_mod_st pam_auth_funcs = {

@@ -31,12 +31,27 @@
 
 #ifdef HAVE_RADIUS
 
-#include "cfg.h"
-#include <freeradius-client.h>
+#include "common-config.h"
+
+#ifdef LEGACY_RADIUS
+# include <freeradius-client.h>
+#else
+# include <radcli/radcli.h>
+#endif
 
 #define RAD_GROUP_NAME 1030
 #define RAD_IPV4_DNS1 ((311<<16)|(28))
 #define RAD_IPV4_DNS2 ((311<<16)|(29))
+
+#if defined(LEGACY_RADIUS)
+# ifndef PW_DELEGATED_IPV6_PREFIX
+#  define PW_DELEGATED_IPV6_PREFIX 123
+# endif
+# ifndef PW_ACCT_INTERIM_INTERVAL
+#  define PW_ACCT_INTERIM_INTERVAL 85
+# endif
+#endif
+
 
 static rc_handle *rh = NULL;
 static char nas_identifier[64];
@@ -76,7 +91,7 @@ static void radius_global_deinit()
 		rc_destroy(rh);
 }
 
-static int radius_auth_init(void **ctx, void *pool, const char *username, const char *ip)
+static int radius_auth_init(void **ctx, void *pool, const char *username, const char *ip, const char *our_ip, unsigned id)
 {
 	struct radius_ctx_st *pctx;
 	char *default_realm;
@@ -93,7 +108,10 @@ static int radius_auth_init(void **ctx, void *pool, const char *username, const 
 
 	strlcpy(pctx->username, username, sizeof(pctx->username));
 	strlcpy(pctx->remote_ip, ip, sizeof(pctx->remote_ip));
-	pctx->pass_msg = pass_msg_first;
+	if (our_ip)
+		strlcpy(pctx->our_ip, our_ip, sizeof(pctx->our_ip));
+
+	pctx->pass_msg = NULL;
 
 	default_realm = rc_conf_str(rh, "default_realm");
 
@@ -103,7 +121,7 @@ static int radius_auth_init(void **ctx, void *pool, const char *username, const 
 	} else {
 		strcpy(pctx->username, username);
 	}
-
+	pctx->id = id;
 
 	*ctx = pctx;
 
@@ -180,26 +198,39 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 	char txt[64];
 	int ret;
 
+	/* send Access-Request */
 	syslog(LOG_DEBUG, "radius-auth: communicating username (%s) and password", pctx->username);
 	if (rc_avpair_add(rh, &send, PW_USER_NAME, pctx->username, -1, 0) == NULL) {
 		syslog(LOG_ERR,
-		       "%s:%u: user '%s' auth error", __func__, __LINE__,
+		       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
 		       pctx->username);
 		return ERR_AUTH_FAIL;
 	}
 
 	if (rc_avpair_add(rh, &send, PW_USER_PASSWORD, (char*)pass, -1, 0) == NULL) {
 		syslog(LOG_ERR,
-		       "%s:%u: user '%s' auth error", __func__, __LINE__,
+		       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
 		       pctx->username);
 		ret = ERR_AUTH_FAIL;
 		goto cleanup;
 	}
 
+	if (pctx->our_ip[0] != 0) {
+		struct in_addr in;
+		struct in6_addr in6;
+
+		if (inet_pton(AF_INET, pctx->our_ip, &in) != 0) {
+			in.s_addr = ntohl(in.s_addr);
+			rc_avpair_add(rh, &send, PW_NAS_IP_ADDRESS, (char*)&in, sizeof(struct in_addr), 0);
+		} else if (inet_pton(AF_INET6, pctx->our_ip, &in6) != 0) {
+			rc_avpair_add(rh, &send, PW_NAS_IPV6_ADDRESS, (char*)&in6, sizeof(struct in6_addr), 0);
+		}
+	}
+
 	if (nas_identifier[0] != 0) {
 		if (rc_avpair_add(rh, &send, PW_NAS_IDENTIFIER, nas_identifier, -1, 0) == NULL) {
 			syslog(LOG_ERR,
-			       "%s:%u: user '%s' auth error", __func__, __LINE__,
+			       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
 			       pctx->username);
 			ret = ERR_AUTH_FAIL;
 			goto cleanup;
@@ -208,7 +239,7 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 
 	if (rc_avpair_add(rh, &send, PW_CALLING_STATION_ID, pctx->remote_ip, -1, 0) == NULL) {
 		syslog(LOG_ERR,
-		       "%s:%u: user '%s' auth error", __func__, __LINE__,
+		       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
 		       pctx->username);
 		ret = ERR_AUTH_FAIL;
 		goto cleanup;
@@ -217,7 +248,27 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 	service = PW_AUTHENTICATE_ONLY;
 	if (rc_avpair_add(rh, &send, PW_SERVICE_TYPE, &service, -1, 0) == NULL) {
 		syslog(LOG_ERR,
-		       "%s:%u: user '%s' auth error", __func__, __LINE__,
+		       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
+		       pctx->username);
+		ret = ERR_AUTH_FAIL;
+		goto cleanup;
+	}
+
+	if (pctx->id) {
+		service = pctx->id;
+		if (rc_avpair_add(rh, &send, PW_NAS_PORT, &service, -1, 0) == NULL) {
+			syslog(LOG_ERR,
+			       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
+			       pctx->username);
+			ret = ERR_AUTH_FAIL;
+			goto cleanup;
+		}
+	}
+
+	service = PW_ASYNC;
+	if (rc_avpair_add(rh, &send, PW_NAS_PORT_TYPE, &service, -1, 0) == NULL) {
+		syslog(LOG_ERR,
+		       "%s:%u: error in constructing radius message for user '%s'", __func__, __LINE__,
 		       pctx->username);
 		ret = ERR_AUTH_FAIL;
 		goto cleanup;
@@ -243,6 +294,15 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 				if (inet_ntop(AF_INET6, vp->strvalue, pctx->ipv6, sizeof(pctx->ipv6)) != NULL) {
 					pctx->ipv6_prefix = 64;
 					strlcpy(pctx->ipv6_net, pctx->ipv6, sizeof(pctx->ipv6_net));
+				}
+			} else if (vp->attribute == PW_DELEGATED_IPV6_PREFIX && vp->type == PW_TYPE_IPV6PREFIX) {
+				/* Delegated-IPv6-Prefix */
+				if (inet_ntop(AF_INET6, vp->strvalue, pctx->ipv6, sizeof(pctx->ipv6)) != NULL) {
+					memset(ipv6, 0, sizeof(ipv6)); 
+					memcpy(ipv6, vp->strvalue+2, vp->lvalue-2); 
+					if (inet_ntop(AF_INET6, ipv6, pctx->ipv6, sizeof(pctx->ipv6)) != NULL) {
+						pctx->ipv6_prefix = (unsigned)(unsigned char)vp->strvalue[1];
+					}
 				}
 			} else if (vp->attribute == PW_FRAMED_IPV6_PREFIX && vp->type == PW_TYPE_IPV6PREFIX) {
 				if (vp->lvalue > 2 && vp->lvalue <= 18) {
@@ -282,6 +342,10 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 			} else if (vp->attribute == PW_FRAMED_IPV6_ROUTE && vp->type == PW_TYPE_STRING) {
 				/* Framed-IPv6-Route */
 				append_route(pctx, vp->strvalue, vp->lvalue);
+			} else if (vp->attribute == PW_ACCT_INTERIM_INTERVAL && vp->type == PW_TYPE_INTEGER) {
+				pctx->interim_interval_secs = vp->lvalue;
+			} else if (vp->attribute == PW_SESSION_TIMEOUT && vp->type == PW_TYPE_INTEGER) {
+				pctx->session_timeout_secs = vp->lvalue;
 			} else {
 				syslog(LOG_DEBUG, "radius-auth: ignoring server's value %u of type %u", (int)vp->attribute, (int)vp->type);
 			}
@@ -317,11 +381,14 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 	}
 }
 
-static int radius_auth_msg(void *ctx, void *pool, char **msg)
+static int radius_auth_msg(void *ctx, void *pool, passwd_msg_st *pst)
 {
 	struct radius_ctx_st *pctx = ctx;
 
-	*msg = talloc_strdup(pool, pctx->pass_msg);
+	if (pctx->pass_msg)
+		pst->msg_str = talloc_strdup(pool, pctx->pass_msg);
+
+	/* use default prompt */
 	return 0;
 }
 

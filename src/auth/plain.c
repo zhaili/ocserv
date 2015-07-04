@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Nikos Mavrogiannopoulos
+ * Copyright (C) 2013-2015 Nikos Mavrogiannopoulos
+ * Copyright (C) 2015 Red Hat, Inc.
  *
  * This file is part of ocserv.
  *
@@ -29,7 +30,7 @@
 #include <vpn.h>
 #include <c-ctype.h>
 #include "plain.h"
-#include "cfg.h"
+#include "common-config.h"
 #include "auth/common.h"
 #include <ccan/htable/htable.h>
 #include <ccan/hash/hash.h>
@@ -155,7 +156,25 @@ static int read_auth_pass(struct plain_ctx_st *pctx)
 			ll--;
 			line[ll] = 0;
 		}
+#ifdef HAVE_STRSEP
+		sp = line;
+		p = strsep(&sp, ":");
 
+		if (p != NULL && strcmp(pctx->username, p) == 0) {
+			p = strsep(&sp, ":");
+			if (p != NULL) {
+				break_group_list(pctx, p, pctx->groupnames, &pctx->groupnames_size);
+
+				p = strsep(&sp, ":");
+				if (p != NULL) {
+					strlcpy(pctx->cpass, p, sizeof(pctx->cpass));
+					ret = 0;
+					goto exit;
+				}
+			}
+		}
+
+#else
 		p = strtok_r(line, ":", &sp);
 
 		if (p != NULL && strcmp(pctx->username, p) == 0) {
@@ -171,6 +190,7 @@ static int read_auth_pass(struct plain_ctx_st *pctx)
 				}
 			}
 		}
+#endif
 	}
 
 	/* always succeed */
@@ -181,7 +201,7 @@ static int read_auth_pass(struct plain_ctx_st *pctx)
 	return ret;
 }
 
-static int plain_auth_init(void **ctx, void *pool, const char *username, const char *ip)
+static int plain_auth_init(void **ctx, void *pool, const char *username, const char *ip, const char *our_ip, unsigned pid)
 {
 	struct plain_ctx_st *pctx;
 	int ret;
@@ -197,7 +217,7 @@ static int plain_auth_init(void **ctx, void *pool, const char *username, const c
 		return ERR_AUTH_FAIL;
 
 	strlcpy(pctx->username, username, sizeof(pctx->username));
-	pctx->pass_msg = pass_msg_first;
+	pctx->pass_msg = NULL; /* use default */
 
 	ret = read_auth_pass(pctx);
 	if (ret < 0) {
@@ -268,11 +288,15 @@ static int plain_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 	}
 }
 
-static int plain_auth_msg(void *ctx, void *pool, char **msg)
+static int plain_auth_msg(void *ctx, void *pool, passwd_msg_st *pst)
 {
 	struct plain_ctx_st *pctx = ctx;
 
-	*msg = talloc_strdup(pool, pctx->pass_msg);
+	if (pctx->pass_msg)
+		pst->msg_str = talloc_strdup(pool, pctx->pass_msg);
+	pst->counter = 0; /* we support a single password */
+
+	/* use the default prompt */
 	return 0;
 }
 
@@ -337,10 +361,18 @@ static void plain_group_list(void *pool, void *additional, char ***groupname, un
 			line[ll] = 0;
 		}
 
+#ifdef HAVE_STRSEP
+		sp = line;
+		p = strsep(&sp, ":");
+
+		if (p != NULL) {
+			p = strsep(&sp, ":");
+#else
 		p = strtok_r(line, ":", &sp);
 
 		if (p != NULL) {
 			p = strtok_r(NULL, ":", &sp);
+#endif
 			if (p != NULL) {
 				break_group_list(pool, p, tgroup, &tgroup_size);
 

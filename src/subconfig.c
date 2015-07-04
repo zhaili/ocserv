@@ -28,7 +28,7 @@
 #include <sec-mod-sup-config.h>
 #include <common.h>
 #include <vpn.h>
-#include "cfg.h"
+#include "common-config.h"
 
 static void free_expanded_brackets_string(subcfg_val_st out[MAX_SUBOPTIONS], unsigned size)
 {
@@ -92,7 +92,9 @@ unsigned expand_brackets_string(void *pool, const char *str, subcfg_val_st out[M
 		out[pos].name = talloc_strndup(pool, p, len);
 		out[pos].value = talloc_strndup(pool, p2, len2);
 		pos++;
-		
+		p = p2+len2;
+		while (c_isspace(*p)||*p==',')
+			p++;
 	} while(finish == 0 && pos < MAX_SUBOPTIONS);
 
 	return pos;
@@ -117,6 +119,18 @@ void *gssapi_get_brackets_string(struct perm_cfg_st *config, const char *str)
 			vals[i].value = NULL;
 		} else if (c_strcasecmp(vals[i].name, "require-local-user-map") == 0) {
 			additional->no_local_map = 1-CHECK_TRUE(vals[i].value);
+		} else if (c_strcasecmp(vals[i].name, "tgt-freshness-time") == 0) {
+			additional->ticket_freshness_secs = atoi(vals[i].value);
+			if (additional->ticket_freshness_secs == 0) {
+				fprintf(stderr, "Invalid value for '%s': %s\n", vals[i].name, vals[i].value);
+				exit(1);
+			}
+		} else if (c_strcasecmp(vals[i].name, "gid-min") == 0) {
+			additional->gid_min = atoi(vals[i].value);
+			if (additional->gid_min < 0) {
+				fprintf(stderr, "error in gid-min value: %d\n", additional->gid_min);
+				exit(1);
+			}
 		} else {
 			fprintf(stderr, "unknown option '%s'\n", vals[i].name);
 			exit(1);

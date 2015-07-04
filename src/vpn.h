@@ -45,6 +45,8 @@
 # define _ATTR_PACKED
 #endif
 
+#define MAX_MSG_SIZE 16*1024
+
 typedef enum {
 	SOCK_TYPE_TCP,
 	SOCK_TYPE_UDP,
@@ -69,6 +71,9 @@ typedef enum {
 
 #define MIN_NO_COMPRESS_LIMIT 64
 #define DEFAULT_NO_COMPRESS_LIMIT 256
+
+/* Timeout (secs) for communication between main and sec-mod */
+#define MAIN_SEC_MOD_TIMEOUT 120
 
 #define DEBUG_BASIC 1
 #define DEBUG_HTTP  4
@@ -103,6 +108,15 @@ extern int syslog_open;
 
 #define ACCT_TYPE_PAM (1<<1)
 #define ACCT_TYPE_RADIUS (1<<2)
+
+/* User Disconnect reasons (must be > 0) */
+#define REASON_ANY 1
+#define REASON_USER_DISCONNECT 2
+#define REASON_SERVER_DISCONNECT 3
+#define REASON_IDLE_TIMEOUT 4
+#define REASON_DPD_TIMEOUT 5
+#define REASON_ERROR 6
+#define REASON_SESSION_TIMEOUT 7
 
 #define ERR_SUCCESS 0
 #define ERR_BAD_COMMAND -2
@@ -155,32 +169,35 @@ typedef enum {
 	SM_CMD_CLI_STATS,
 
 	/* from main to sec-mod and vice versa */
-	SM_CMD_AUTH_SESSION_OPEN=240,
-	SM_CMD_AUTH_SESSION_CLOSE,
+	MIN_SM_MAIN_CMD=239,
+	SM_CMD_AUTH_SESSION_OPEN, /* sync: reply is SM_CMD_AUTH_SESSION_REPLY */
+	SM_CMD_AUTH_SESSION_CLOSE, /* sync: reply is SM_CMD_AUTH_CLI_STATS */
 	SM_CMD_AUTH_SESSION_REPLY,
 	SM_CMD_AUTH_BAN_IP,
 	SM_CMD_AUTH_BAN_IP_REPLY,
 	SM_CMD_AUTH_CLI_STATS,
+
+	MAX_SM_MAIN_CMD,
 } cmd_request_t;
 
 struct group_cfg_st {
 	/* routes to be forwarded to the client */
 	char **routes;
-	unsigned int routes_size;
+	size_t routes_size;
 
 	/* routes that are excluded */
 	char **no_routes;
-	unsigned int no_routes_size;
+	size_t no_routes_size;
 
 	/* routes to be applied to the server */
 	char **iroutes;
-	unsigned int iroutes_size;
+	size_t iroutes_size;
 
 	char **dns;
-	unsigned int dns_size;
+	size_t dns_size;
 
 	char **nbns;
-	unsigned int nbns_size;
+	size_t nbns_size;
 
 	char *ipv4_network;
 	char *ipv6_network;
@@ -196,6 +213,11 @@ struct group_cfg_st {
 
 	size_t rx_per_sec;
 	size_t tx_per_sec;
+
+	/* the number of secs to send interim updates. If set, it overrides
+	 * stats-report-time. */
+	unsigned interim_update_secs;
+	unsigned session_timeout_secs;
 
 	unsigned deny_roaming; /* whether the user is allowed to re-use cookies from another IP */
 	unsigned net_priority;
@@ -216,17 +238,17 @@ struct vpn_st {
 	unsigned int mtu;
 
 	char **routes;
-	unsigned int routes_size;
+	size_t routes_size;
 
 	/* excluded routes */
 	char **no_routes;
-	unsigned int no_routes_size;
+	size_t no_routes_size;
 
 	char **dns;
-	unsigned int dns_size;
+	size_t dns_size;
 
 	char **nbns;
-	unsigned int nbns_size;
+	size_t nbns_size;
 };
 
 #define MAX_AUTH_METHODS 4
@@ -269,16 +291,6 @@ struct cfg_st {
 	kkdcp_st *kkdcp;
 	unsigned int kkdcp_size;
 
-	char *pin_file;
-	char *srk_pin_file;
-	char **cert;
-	unsigned cert_size;
-	char **key;
-	unsigned key_size;
-
-	char *ca;
-	char *crl;
-	char *dh_params_file;
 	char *cert_user_oid;	/* The OID that will be used to extract the username */
 	char *cert_group_oid;	/* The OID that will be used to extract the groupname */
 
@@ -300,14 +312,16 @@ struct cfg_st {
 	char *default_select_group;
 
 	char **custom_header;
-	unsigned custom_header_size;;
+	size_t custom_header_size;;
 
 	char **split_dns;
-	unsigned split_dns_size;;
+	size_t split_dns_size;;
 
 
 	unsigned deny_roaming; /* whether a cookie is restricted to a single IP */
 	time_t cookie_timeout;	/* in seconds */
+	time_t session_timeout;	/* in seconds */
+	unsigned persistent_cookies; /* whether cookies stay valid after disconnect */
 
 	time_t rekey_time;	/* in seconds */
 	unsigned rekey_method; /* REKEY_METHOD_ */
@@ -347,6 +361,8 @@ struct cfg_st {
 	size_t tx_per_sec;
 	unsigned net_priority;
 
+	char *crl;
+
 	unsigned output_buffer;
 	unsigned default_mtu;
 	unsigned predictable_ips; /* boolean */
@@ -363,7 +379,6 @@ struct cfg_st {
 #ifdef ANYCONNECT_CLIENT_COMPAT
 	char *xml_config_file;
 	char *xml_config_hash;
-	char *cert_hash;
 #endif
 
 	/* additional configuration files */
@@ -395,6 +410,22 @@ struct perm_cfg_st {
 	uid_t uid;
 	gid_t gid;
 
+	char *key_pin;
+	char *srk_pin;
+
+	char *pin_file;
+	char *srk_pin_file;
+	char **cert;
+	size_t cert_size;
+	char **key;
+	size_t key_size;
+#ifdef ANYCONNECT_CLIENT_COMPAT
+	char *cert_hash;
+#endif
+
+	char *ca;
+	char *dh_params_file;
+
 	char *listen_host;
 	char* unix_conn_file;
 	unsigned int port;
@@ -414,7 +445,7 @@ struct main_server_st;
 #define MAX_GROUPNAME_SIZE MAX_USERNAME_SIZE
 #define MAX_SESSION_DATA_SIZE (4*1024)
 
-#define MAX_CONFIG_ENTRIES 96
+#define DEFAULT_CONFIG_ENTRIES 96
 
 #include <tun.h>
 

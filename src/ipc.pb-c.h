@@ -70,7 +70,6 @@ struct  _AuthReplyMsg
   char *vname;
   char *user_name;
   char *group_name;
-  char *msg;
   char *ipv4;
   char *ipv6;
   char *ipv4_local;
@@ -99,10 +98,14 @@ struct  _AuthReplyMsg
   size_t n_no_routes;
   char **no_routes;
   ProtobufCBinaryData sid;
+  protobuf_c_boolean has_interim_update_secs;
+  uint32_t interim_update_secs;
+  protobuf_c_boolean has_session_timeout_secs;
+  uint32_t session_timeout_secs;
 };
 #define AUTH_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&auth_reply_msg__descriptor) \
-    , 0, 0,{0,NULL}, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, NULL, 0,NULL, {0,NULL} }
+    , 0, 0,{0,NULL}, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,0, NULL, NULL, NULL, 0,NULL, {0,NULL}, 0,0, 0,0 }
 
 
 struct  _SessionResumeFetchMsg
@@ -159,8 +162,8 @@ struct  _CliStatsMsg
   char *remote_ip;
   char *ipv4;
   char *ipv6;
-  protobuf_c_boolean has_invalidate_cookie;
-  protobuf_c_boolean invalidate_cookie;
+  protobuf_c_boolean has_discon_reason;
+  uint32_t discon_reason;
   protobuf_c_boolean has_secmod_client_entries;
   uint32_t secmod_client_entries;
 };
@@ -232,10 +235,11 @@ struct  _SecAuthInitMsg
   char *hostname;
   char *ip;
   uint32_t auth_type;
+  char *our_ip;
 };
 #define SEC_AUTH_INIT_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_init_msg__descriptor) \
-    , 0, NULL, NULL, NULL, 0,NULL, NULL, NULL, 0u }
+    , 0, NULL, NULL, NULL, 0,NULL, NULL, NULL, 0u, NULL }
 
 
 struct  _SecAuthContMsg
@@ -262,10 +266,12 @@ struct  _SecAuthReplyMsg
   ProtobufCBinaryData dtls_session_id;
   protobuf_c_boolean has_sid;
   ProtobufCBinaryData sid;
+  protobuf_c_boolean has_passwd_counter;
+  uint32_t passwd_counter;
 };
 #define SEC_AUTH_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_reply_msg__descriptor) \
-    , 0, 0,{0,NULL}, NULL, NULL, 0,{0,NULL}, 0,{0,NULL} }
+    , 0, 0,{0,NULL}, NULL, NULL, 0,{0,NULL}, 0,{0,NULL}, 0,0 }
 
 
 struct  _SecOpMsg
@@ -309,16 +315,22 @@ struct  _SecAuthSessionMsg
   uint64_t bytes_in;
   protobuf_c_boolean has_bytes_out;
   uint64_t bytes_out;
+  char *ipv4;
+  char *ipv6;
 };
 #define SEC_AUTH_SESSION_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_msg__descriptor) \
-    , {0,NULL}, 0,{0,NULL}, 0,0, 0,0, 0,0 }
+    , {0,NULL}, 0,{0,NULL}, 0,0, 0,0, 0,0, NULL, NULL }
 
 
 struct  _SecAuthSessionReplyMsg
 {
   ProtobufCMessage base;
   AUTHREP reply;
+  protobuf_c_boolean has_interim_update_secs;
+  uint32_t interim_update_secs;
+  protobuf_c_boolean has_session_timeout_secs;
+  uint32_t session_timeout_secs;
   protobuf_c_boolean has_no_udp;
   protobuf_c_boolean no_udp;
   protobuf_c_boolean has_deny_roaming;
@@ -351,7 +363,7 @@ struct  _SecAuthSessionReplyMsg
 };
 #define SEC_AUTH_SESSION_REPLY_MSG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sec_auth_session_reply_msg__descriptor) \
-    , 0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL, 0,NULL }
+    , 0, 0,0, 0,0, 0,0, 0,0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,0, NULL, NULL, 0,0, 0,0, 0,0, NULL, NULL, 0,NULL }
 
 
 /* AuthCookieRequestMsg methods */

@@ -110,6 +110,19 @@ int y;
 		       (const void *) &y, sizeof(y)) < 0)
 			perror("setsockopt(IP_DF) failed");
 #endif
+		if (family == AF_INET6) {
+#if defined(IPV6_DONTFRAG)
+			y = 1;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG,
+				       (const void *) &y, sizeof(y)) < 0)
+				perror("setsockopt(IPV6_DF) failed");
+#elif defined(IPV6_MTU_DISCOVER)
+			y = IP_PMTUDISC_DO;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_MTU_DISCOVER,
+			       (const void *) &y, sizeof(y)) < 0)
+				perror("setsockopt(IPV6_DF) failed");
+#endif
+		}
 	}
 #if defined(IP_PKTINFO)
 	y = 1;
@@ -487,7 +500,7 @@ struct script_wait_st *stmp = NULL, *spos;
 				list_del(&stmp->list);
 				ret = handle_script_exit(s, stmp->proc, estatus);
 				if (ret < 0) {
-					remove_proc(s, stmp->proc, 1);
+					remove_proc(s, stmp->proc, RPROC_KILL);
 				} else {
 					talloc_free(stmp);
 				}
@@ -647,7 +660,7 @@ static void kill_children(main_server_st* s)
 	kill(s->sec_mod_pid, SIGTERM);
 	list_for_each_safe(&s->proc_list.head, ctmp, cpos, list) {
 		if (ctmp->pid != -1) {
-			remove_proc(s, ctmp, 1);
+			remove_proc(s, ctmp, RPROC_KILL|RPROC_QUIT);
 		}
 	}
 }
@@ -1017,7 +1030,7 @@ int main(int argc, char** argv)
 
 	write_pid_file();
 
-	s->sec_mod_fd = run_sec_mod(s);
+	s->sec_mod_fd = run_sec_mod(s, &s->sec_mod_fd_sync);
 
 	ret = ctl_handler_init(s);
 	if (ret < 0) {
@@ -1115,7 +1128,7 @@ int main(int argc, char** argv)
 		ts.tv_usec = 0;
 		ts.tv_sec = 30;
 		sigprocmask(SIG_UNBLOCK, &blockset, NULL);
-		ret = select(n + 1, &rd_set, &wr_set, NULL, &ts);
+		ret = select(n + 1, &rd_set, NULL/*&wr_set*/, NULL, &ts);
 		sigprocmask(SIG_BLOCK, &blockset, NULL);
 #endif
 
@@ -1183,6 +1196,8 @@ int main(int argc, char** argv)
 					sigprocmask(SIG_SETMASK, &sig_default_set, NULL);
 					close(cmd_fd[0]);
 					clear_lists(s);
+					close(s->sec_mod_fd);
+					close(s->sec_mod_fd_sync);
 
 					/* clear the cookie key */
 					safe_memset(s->cookie_key, 0, sizeof(s->cookie_key));
@@ -1254,7 +1269,7 @@ fork_failed:
 			if (ctmp->fd >= 0 && FD_ISSET(ctmp->fd, &rd_set)) {
 				ret = handle_commands(s, ctmp);
 				if (ret < 0) {
-					remove_proc(s, ctmp, (ret!=ERR_WORKER_TERMINATED)?1:0);
+					remove_proc(s, ctmp, (ret!=ERR_WORKER_TERMINATED)?RPROC_KILL:0);
 				}
 			}
 		}
@@ -1263,7 +1278,7 @@ fork_failed:
 			ret = handle_sec_mod_commands(s);
 			if (ret < 0) { /* bad commands from sec-mod are unacceptable */
 				mslog(s, NULL, LOG_ERR,
-				       "error command from sec-mod");
+				       "error in command from sec-mod");
 				terminate = 1;
 				continue;
 			}

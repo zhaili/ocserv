@@ -39,6 +39,7 @@
 #include "str.h"
 #include "setproctitle.h"
 #include <sec-mod.h>
+#include <ip-lease.h>
 #include <route-add.h>
 #include <ipc.pb-c.h>
 #include <script-list.h>
@@ -73,22 +74,25 @@ int handle_sec_mod_commands(main_server_st * s)
 	hdr.msg_iov = iov;
 	hdr.msg_iovlen = 2;
 
-	ret = recvmsg(s->sec_mod_fd, &hdr, 0);
+	do {
+		ret = recvmsg(s->sec_mod_fd, &hdr, 0);
+	} while(ret == -1 && errno == EINTR);
 	if (ret == -1) {
 		e = errno;
 		mslog(s, NULL, LOG_ERR,
-		      "cannot obtain metadata from command socket: %s",
+		      "cannot obtain metadata from sec-mod socket: %s",
 		      strerror(e));
 		return ERR_BAD_COMMAND;
 	}
 
 	if (ret == 0) {
-		mslog(s, NULL, LOG_DEBUG, "command socket closed");
+		mslog(s, NULL, LOG_ERR, "command socket for sec-mod closed");
 		return ERR_BAD_COMMAND;
 	}
 
-	if (ret < 3) {
-		mslog(s, NULL, LOG_ERR, "command error");
+	if (ret < 3 || cmd <= MIN_SM_MAIN_CMD || cmd >= MAX_SM_MAIN_CMD) {
+		mslog(s, NULL, LOG_ERR, "main received invalid message from sec-mod of %u bytes (cmd: %u)\n",
+		      (unsigned)length, (unsigned)cmd);
 		return ERR_BAD_COMMAND;
 	}
 
@@ -101,12 +105,12 @@ int handle_sec_mod_commands(main_server_st * s)
 		return ERR_MEM;
 	}
 
-	raw_len = force_read_timeout(s->sec_mod_fd, raw, length, 2);
+	raw_len = force_read_timeout(s->sec_mod_fd, raw, length, MAIN_SEC_MOD_TIMEOUT);
 	if (raw_len != length) {
 		e = errno;
 		mslog(s, NULL, LOG_ERR,
-		      "cannot obtain data from command socket: %s",
-		      strerror(e));
+		      "cannot obtain data of cmd %u with length %u from sec-mod socket: %s",
+		      (unsigned)cmd, (unsigned)length, strerror(e));
 		ret = ERR_BAD_COMMAND;
 		goto cleanup;
 	}
@@ -173,6 +177,8 @@ int session_open(main_server_st * s, struct proc_st *proc, const uint8_t *cookie
 	SecAuthSessionReplyMsg *msg = NULL;
 	unsigned i;
 	PROTOBUF_ALLOCATOR(pa, proc);
+	char str_ipv4[MAX_IP_STR];
+	char str_ipv6[MAX_IP_STR];
 
 	ireq.uptime = time(0)-proc->conn_time;
 	ireq.has_uptime = 1;
@@ -183,6 +189,18 @@ int session_open(main_server_st * s, struct proc_st *proc, const uint8_t *cookie
 	ireq.sid.data = proc->sid;
 	ireq.sid.len = sizeof(proc->sid);
 
+	if (proc->ipv4 && 
+	    human_addr2((struct sockaddr *)&proc->ipv4->rip, proc->ipv4->rip_len,
+	    str_ipv4, sizeof(str_ipv4), 0) != NULL) {
+		ireq.ipv4 = str_ipv4;
+	}
+
+	if (proc->ipv6 && 
+	    human_addr2((struct sockaddr *)&proc->ipv6->rip, proc->ipv6->rip_len,
+	    str_ipv6, sizeof(str_ipv6), 0) != NULL) {
+		ireq.ipv6 = str_ipv6;
+	}
+
 	if (cookie) {
 		ireq.cookie.data = (void*)cookie;
 		ireq.cookie.len = cookie_size;
@@ -191,7 +209,7 @@ int session_open(main_server_st * s, struct proc_st *proc, const uint8_t *cookie
 
 	mslog(s, proc, LOG_DEBUG, "sending msg %s to sec-mod", cmd_request_to_str(SM_CMD_AUTH_SESSION_OPEN));
 
-	ret = send_msg(proc, s->sec_mod_fd, SM_CMD_AUTH_SESSION_OPEN,
+	ret = send_msg(proc, s->sec_mod_fd_sync, SM_CMD_AUTH_SESSION_OPEN,
 		&ireq, (pack_size_func)sec_auth_session_msg__get_packed_size,
 		(pack_func)sec_auth_session_msg__pack);
 	if (ret < 0) {
@@ -200,8 +218,8 @@ int session_open(main_server_st * s, struct proc_st *proc, const uint8_t *cookie
 		return -1;
 	}
 
-	ret = recv_msg(proc, s->sec_mod_fd, SM_CMD_AUTH_SESSION_REPLY,
-	       (void *)&msg, (unpack_func) sec_auth_session_reply_msg__unpack);
+	ret = recv_msg(proc, s->sec_mod_fd_sync, SM_CMD_AUTH_SESSION_REPLY,
+	       (void *)&msg, (unpack_func) sec_auth_session_reply_msg__unpack, MAIN_SEC_MOD_TIMEOUT);
 	if (ret < 0) {
 		e = errno;
 		mslog(s, proc, LOG_ERR, "error receiving auth reply message from sec-mod cmd socket: %s", strerror(e));
@@ -212,6 +230,12 @@ int session_open(main_server_st * s, struct proc_st *proc, const uint8_t *cookie
 		mslog(s, proc, LOG_INFO, "could not initiate session for '%s'", proc->username);
 		return -1;
 	}
+
+	if (msg->has_interim_update_secs)
+		proc->config.interim_update_secs = msg->interim_update_secs;
+
+	if (msg->has_session_timeout_secs)
+		proc->config.session_timeout_secs = msg->session_timeout_secs;
 
 	/* fill in group_cfg_st */
 	if (msg->has_no_udp)
@@ -319,7 +343,7 @@ int session_close(main_server_st * s, struct proc_st *proc)
 
 	mslog(s, proc, LOG_DEBUG, "sending msg %s to sec-mod", cmd_request_to_str(SM_CMD_AUTH_SESSION_CLOSE));
 
-	ret = send_msg(proc, s->sec_mod_fd, SM_CMD_AUTH_SESSION_CLOSE,
+	ret = send_msg(proc, s->sec_mod_fd_sync, SM_CMD_AUTH_SESSION_CLOSE,
 		&ireq, (pack_size_func)sec_auth_session_msg__get_packed_size,
 		(pack_func)sec_auth_session_msg__pack);
 	if (ret < 0) {
@@ -328,8 +352,8 @@ int session_close(main_server_st * s, struct proc_st *proc)
 		return -1;
 	}
 
-	ret = recv_msg(proc, s->sec_mod_fd, SM_CMD_AUTH_CLI_STATS,
-	       (void *)&msg, (unpack_func) cli_stats_msg__unpack);
+	ret = recv_msg(proc, s->sec_mod_fd_sync, SM_CMD_AUTH_CLI_STATS,
+	       (void *)&msg, (unpack_func) cli_stats_msg__unpack, MAIN_SEC_MOD_TIMEOUT);
 	if (ret < 0) {
 		e = errno;
 		mslog(s, proc, LOG_ERR, "error receiving auth cli stats message from sec-mod cmd socket: %s", strerror(e));

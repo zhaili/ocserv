@@ -1,3 +1,39 @@
+* Version 0.10.6 (released 2015-07-01)
+- Transmit packets to the last incoming source, allowing faster switch
+  of the communication channel.
+- The worker processes will utilize the UDP socket address (if any),
+  when reporting peer's address if the listen-clear-file option is set.
+- Lifted the limit on the number of configuration options. That allows to
+  add an "unlimited" number of 'route' options.
+- Support encrypted key files. That adds the key-pin and srk-pin
+  configuration options.
+- The dbus communication option has been dropped.
+- Radius: depend on radcli radius library. http://radcli.github.io/radcli/
+- occtl: added -j/--json option. That allows to output in a JSON format.
+
+
+* Version 0.10.5 (released 2015-05-24)
+- Added tgt-freshness-time option for gssapi/Kerberos authentication
+  option. That allows to specify the maximum number of seconds after
+  which a reauthentication with Kerberos is required to login to VPN.
+- main/sec-mod: impose long timeouts on reads from sec-mod. That would
+  prevent issues when reading in a blocked in authentication sec-mod.
+- radius: When using radius accounting with certificate authentication,
+  properly notify of user session termination.
+- radius: On definitely terminated sessions contact the radius server as
+  soon as possible. For sessions that can still be resumed the radius
+  server is contacted periodically after the cookies expire.
+- radius: consider Acct-Interim-Interval when seen by the server.
+  That will be taken into account if groupconfig=true in radius subconfig.
+- Added configuration options 'persistent-cookies' and 'session-timeout'.
+- radius: added support for Route-IPv6-Information, Delegated-IPv6-Prefix,
+  NAS-IPv6-Address, NAS-IP-Address, Session-Timeout.
+- Corrected desync of main and sec-mod by introducing a synchronous
+  communication socket. Reported by Mani Behrouz.
+- PAM: forward the actual prompt to worker process, and not only informational
+  messages.
+
+
 * Version 0.10.4 (released 2015-04-27)
 - sec-mod: expire sessions which are in terminated state
 

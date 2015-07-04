@@ -1,3 +1,965 @@
+2015-07-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth-unix.c, src/auth-unix.h: Only include grouplist functions
+	when they are needed
+
+2015-07-01  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.10.6
+
+2015-07-01  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/occtl-nl.c, src/occtl-print.c, src/occtl-unix.c, src/occtl.h: 
+	occtl: corrected bug in json checks
+
+2015-06-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main.c: don't set the wr_set in select (previously it was only
+	ignored in pselect)
+
+2015-06-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: bumped version
+
+2015-06-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: use quotes in all examples
+	to avoid issues in modifications
+
+2015-06-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/myscript,
+	tests/docker-kerberos/ocserv.conf, tests/kerberos-test: tests:
+	verify that groupname is read correctly when in kerberos auth
+
+2015-06-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-06-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/server-key-ossl.pem,
+	tests/server-key-p8.pem, tests/test-enc-key,
+	tests/test-enc-key.config, tests/test-enc-key2.config: tests: check
+	the ability to load encrypted key files
+
+2015-06-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def,
+	src/sec-mod.c, src/vpn.h: Allow specifying a PIN and SRK PIN in the
+	config file That pin will be used to decrypt encrypted key files as well.
+
+2015-06-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/kkdcp-parsing.c: tests: kkdcp-parsing: fixed header include
+
+2015-06-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/ocserv-args.def, src/sec-mod.c, src/tlslib.c,
+	src/vpn.h, src/worker-auth.c: certificates and keys were moved to
+	permanent configuration
+
+2015-06-23  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: worker: provide log messages in more failure
+	paths
+
+2015-06-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: require radcli 1.2.1
+
+2015-06-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-06-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/acct/radius.c, src/auth/gssapi.c,
+	src/auth/pam.c, src/auth/plain.c, src/auth/radius.c, src/cfg.h,
+	src/common-config.h, src/config.c, src/subconfig.c: combined cfg.h
+	and common-config.h
+
+2015-06-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sup-config/file.c: improved variable name
+
+2015-06-17  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/common-config.h, src/config.c,
+	src/sup-config/file.c, src/vpn.h: Lifted the limit by
+	MAX_CONFIG_ENTRIES Now entries in the configuration file are limited by available
+	memory.
+
+2015-06-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth-unix.c, src/auth-unix.h, src/auth/gssapi.c,
+	src/auth/pam.c, src/cfg.h, src/ocserv-args.def, src/subconfig.c: 
+	gssapi: allow auto-select-group option to work
+
+2015-06-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/auth-unix.c, src/auth-unix.h,
+	src/auth/gssapi.c, src/auth/pam.c: gssapi: allow group setting using
+	getpwnam
+
+2015-06-09  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c: radius: add PW_ACCT_INTERIM_INTERVAL when
+	compiling against old implementations
+
+2015-06-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-radius: tests: radius:
+	expose the radius ports
+
+2015-06-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-06-08  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-06-07  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-06-07  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/acct/radius.c, src/auth/radius.c: radius: updated radcli
+	header
+
+2015-06-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/cfg.h: define perm_cfg_st as struct in cfg.h to reduce
+	warnings
+
+2015-06-08  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: when using a UNIX socket get our IP from the
+	UDP socket That is only for DTLS clients, and for the IP the worker advertizes
+	to the security module.
+
+2015-06-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: improved error messages when radius packet
+	forming fails
+
+2015-06-05  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac, doc/README.radius: updated radcli URLs
+
+2015-06-05  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* configure.ac, doc/README.radius, src/Makefile.am,
+	src/acct/radius.c, src/auth/radius.c: use radcli as the radius
+	library if found
+
+2015-06-05  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: When we receive a data packet in the CSTP
+	channel switch communication to it That will reduce delay time if the DTLS channel is unresponsive and
+	our peer switched to CSTP already. That switch will be undone if our
+	peer switches back and starts sending DTLS.
+
+2015-06-03  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/README.radius: added NAS-Identifier into dictionary
+
+2015-05-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/ocserv.conf, tests/full-test: tests: use
+	non-common IPs in full-test
+
+2015-05-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/json-escape.c: tests: added unit test for
+	JSON escaping
+
+2015-05-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/common-json.c, src/common-json.h,
+	src/occtl-print.c: occtl: properly escape JSON strings
+
+2015-05-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/Dockerfile-fedora-client,
+	tests/docker-kerberos/Dockerfile-fedora-kerberos,
+	tests/docker-ocserv/Dockerfile-fedora-pam,
+	tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/Dockerfile-fedora-radius-config,
+	tests/docker-ocserv/Dockerfile-fedora-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-unix: tests: use f22 for
+	docker images
+
+2015-05-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/kkdcp-parsing.c: tests: added unit test
+	with KKDCP server parsing
+
+2015-05-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/cfg.h, src/config-kkdcp.c, src/config.c: 
+	split KKDCP config line parsing from config.c
+
+2015-05-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/ocserv-args.def: Allow IPv6 addresses in KKDCP
+
+2015-05-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/icmp-ping.c: ping: check for ICMPv6 unreachable packets when
+	in IPv6
+
+2015-05-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/icmp-ping.c: ping: cleanup code
+
+2015-05-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, doc/Makefile.am,
+	doc/dbus/org.infradead.ocserv.conf, src/Makefile.am,
+	src/main-ctl-dbus.c, src/occtl-dbus.c: removed dbus option
+
+2015-05-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/Makefile.am, src/common.h, src/main-ctl-unix.c,
+	src/occtl-dbus.c, src/occtl-nl.c, src/occtl-print.c,
+	src/occtl-time.c, src/occtl-unix.c, src/occtl.c, src/occtl.h: occtl:
+	added --json option This allows to parse the output data using automated tools.
+
+2015-05-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac, src/auth/plain.c: plain auth: use strsep() to allow
+	an empty group string
+
+2015-05-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/pcl/pcl.c: pcl: include headers for getpid and memcpy
+
+2015-05-26  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/occtl-time.c: use casts for systems where time_t is longer
+	than 32-bits Suggested by Stuart Henderson.
+
+2015-05-25  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-05-25  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: better text for group prompt
+
+2015-05-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: use IPV6_PATHMTU socket option instead of
+	IPV6_MTU The former is portable and available on BSD systems.
+
+2015-05-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: removed redundant line
+
+2015-05-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/config.c: don't exit if isolated-workers isset
+
+2015-05-24  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: released 0.10.5
+
+2015-05-23  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config: sample.config: bring in par with
+	ocserv-args.def
+
+2015-05-23  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: document the fact that
+	some clients fail if rekey is disabled
+
+2015-05-22  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/freeradius-users,
+	tests/docker-ocserv/ocserv-pam.conf,
+	tests/docker-ocserv/ocserv-radius-config.conf,
+	tests/docker-ocserv/ocserv-radius.conf,
+	tests/docker-ocserv/ocserv-unix.conf,
+	tests/docker-ocserv/ocserv.conf, tests/radius-test-config: tests:
+	separate the provided routes from the client's IP to avoid
+	collisions
+
+2015-05-22  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test: tests: use openconnect -b in full-test
+
+2015-05-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-common.sh, tests/full-test, tests/radius-test,
+	tests/unix-test: tests: use /bin/echo to provide '-e' and
+	elimination of some bashisms
+
+2015-05-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-auth.c: added dots to prompt messages
+
+2015-05-22  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* tests/docker-ocserv/Dockerfile-debian-radius-config,
+	tests/docker-ocserv/Makefile.am: tests: added
+	Dockerfile-debian-radius-config
+
+2015-05-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-common.sh, tests/kerberos-test: tests: avoid docker
+	cp in kerberos test
+
+2015-05-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/unix-test: tests: use common functions in unix-test
+
+2015-05-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c: corrected memset usage
+
+2015-05-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: avoid null pointer dereference in config parsing
+
+2015-05-21  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c: check the return value of inet_pton
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/pam-test: tests: corrected username in pam-test
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test, tests/radius-test-config: tests: cleanups
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-common.sh: tests: remove the interactive flags from
+	docker exec cmd
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am: tests: added radius-test-config to tests
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-common.sh, tests/full-test, tests/pam-test,
+	tests/radius-test, tests/radius-test-config, tests/unix-test: tests:
+	use common function to check for file existence This addresses issue with "docker cp" in some systems.
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: move the password counter to the label That addresses issue with anyconnect clients which require the name
+	to be called password.
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-pam,
+	tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/Dockerfile-fedora-radius-config,
+	tests/docker-ocserv/Dockerfile-fedora-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-unix, tests/full-test,
+	tests/kerberos-test, tests/pam-test, tests/radius-test,
+	tests/radius-test-config, tests/unix-test: tests: don't use ssh to
+	obtain user information
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: when the password label matches the message,
+	set no message
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/pam.c: PAM: improved log message in conv to include
+	prompt
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/pam.c, src/ipc.proto, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/sec-mod.h, src/worker-auth.c: Combined
+	password prompt and message That is because there are clients (anyconnect) which only print the
+	message but not the prompt.
+
+2015-05-20  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: do not print error message when a new password
+	is requested
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* TODO: TODO: removed session timeout
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-debian-tcp,
+	tests/docker-ocserv/Dockerfile-fedora-tcp,
+	tests/docker-ocserv/ocserv.conf, tests/full-test,
+	tests/radius-test, tests/radius-test-config, tests/unix-test: tests:
+	avoid using double newlines and other updates in full-test
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/common.c, src/auth/common.h, src/auth/plain.c: don't use
+	default messages for first prompt - allow worker to set it
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c: updated for new format of msgs
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/Dockerfile-fedora-radius-config,
+	tests/docker-ocserv/Makefile.am,
+	tests/docker-ocserv/freeradius-users,
+	tests/docker-ocserv/ocserv-radius-config.conf,
+	tests/docker-ocserv/ocserv-radius.conf,
+	tests/docker-ocserv/radius-dictionary, tests/radius-test-config: 
+	tests: added check for the application of radius configuration
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: do not send interim-updates on init
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-sup-config.c: print information on the config backend
+	used
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/subconfig.c: corrected bug in string expansion
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/full-test, tests/pam-test, tests/radius-test,
+	tests/unix-test: tests: properly escape output
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-db.c: session-timeout immediately invalidates the
+	session
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ocserv-args.def, src/sup-config/file.c: stats-report-time and
+	session-timeout can be set per user/group as well
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c, src/cfg.h, src/ocserv-args.def,
+	src/subconfig.c: simplify application of radius config
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/radius.c, src/auth/radius.h, src/cfg.h, src/ipc.proto,
+	src/main-auth.c, src/main-sec-mod-cmd.c, src/main.h,
+	src/ocserv-args.def, src/sec-mod-auth.c, src/sec-mod-auth.h,
+	src/subconfig.c, src/sup-config/radius.c, src/vpn.h,
+	src/worker-auth.c: Allow overriding session-timeout from radius
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c, src/config.c, src/ocserv-args.def, src/vpn.h,
+	src/worker-vpn.c: Introduced session-timeout option That allows to set the maximum number of seconds a session can be
+	active.
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/README.radius: updated radius documentation
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-auth.c: cleanup in match_password_in_reply()
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/auth/pam.c, src/auth/pam.h,
+	src/auth/plain.c, src/ipc.proto, src/sec-mod-auth.c,
+	src/sec-mod-auth.h, src/sec-mod.h, src/worker-auth.c: when multiple
+	password prompts are sent, utilize a counter to differentiate them
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ipc.proto: removed deprecated field from auth_reply_msg
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-fedora-pam,
+	tests/docker-ocserv/ocserv-pam.conf,
+	tests/docker-ocserv/pam-ocserv, tests/docker-ocserv/users.oath,
+	tests/pam-test: tests: enhanced PAM test with a second (OTP)
+	password
+
+2015-05-19  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/auth/pam.c, src/auth/pam.h,
+	src/auth/plain.c, src/auth/radius.c, src/ipc.proto,
+	src/sec-mod-auth.c, src/sec-mod-auth.h, src/sec-mod.h,
+	src/worker-auth.c: pam: allow passing brief prompt in addition to
+	messages
+
+2015-05-15  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS, src/vpn.h: increased timeout in main-secmod  communication
+
+2015-05-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c, src/vpn.h: simplified request handling in sec-mod
+
+2015-05-14  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main.c: close the sec-mod fds on worker
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* TODO: doc update
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-ctl.h, src/main-misc.c, src/main.c, src/main.h: 
+	remove_proc: use flags instead of multiple variables
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* configure.ac: bumped version
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-ctl.h, src/main-misc.c, src/main.c, src/main.h: when the
+	server exits don't wait for stats from sec-mod
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main.h: updated main_mod_fd_sync doc
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/main-misc.c, src/main-sec-mod-cmd.c, src/main.c, src/main.h,
+	src/sec-mod-auth.c, src/sec-mod.c, src/sec-mod.h: main: use two
+	sockets to communicate with sec-mod That allows to have a reliable synchronous socket, and a socket
+	where messages are sent and received asynchronously.
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c, src/sec-mod.c: Added more debugging messages
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod.c: set cloexec on sec-mod's socket file
+
+2015-05-13  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/freeradius-users: tests: added more users into
+	radius' server user file
+
+2015-05-12  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/Dockerfile-fedora-client, tests/pam-test: 
+	tests: updated ipv6 addresses in kerberos and pam tests
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-user.c: export IPV6_PREFIX to scripts
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-auth.c: set ipv6 prefix only if it is set
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/Dockerfile-fedora-client, tests/full-test,
+	tests/radius-test: tests: updated IPv6 addresses
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/ip-lease.c, src/ip-lease.h, src/main-auth.c, src/tun.c: use an
+	127-bit prefix for IPv6 leases
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test: tests: updated radius-test to detect disconnect
+	in certificate auth
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c, src/sec-mod-auth.c, src/sec-mod-db.c,
+	src/sec-mod.h: radius: set NAS_PORT on accounting requests
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c, src/auth/radius.c: radius: corrected the byte
+	ordering of NAS_IP_ADDRESS
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test: tests: check whether the value set in radius'
+	NAS-IP-Address is not invalid
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c, src/auth/radius.c, src/sec-mod-auth.c,
+	src/sec-mod.h: radius: advertise the correct NAS IP in accounting
+	messages
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-misc.c, src/sec-mod.c: set close-on-exec flag in sec-mod
+	fds
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/main-user.c, src/ocserv-args.def: corrected
+	typos in IPV6 env variable
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod.c, src/vpn.h: increased MAX_MSG_SIZE
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-sec-mod-cmd.c, src/vpn.h: enforce more timeouts in
+	sec-mod main communication
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/sec-mod-auth.c, src/sec-mod.c, src/sec-mod.h: sec-mod:
+	eliminated redundant parameters
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-sec-mod-cmd.c, src/sec-mod.c, src/vpn.h: added sanity
+	checks in commands exchanged from main with sec-mod
+
+2015-05-10  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/acct/radius.c, src/vpn.h, src/worker-vpn.c: radius:
+	distinguish more disconnect codes
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: worker: introduce a minimum interval below which
+	no stats will be sent
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/acct/radius.c, src/vpn.h, src/worker-vpn.c: radius: notify of
+	disconnect timeout reason
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c: oc_recvfrom_at: use correct packet type for IPv6
+	data
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* .gitignore: more files to ignore
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: radius: use explicit sizes when setting NAS
+	address
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/worker-vpn.c: updated ipv6 MTU discovery
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c: oc_recvfrom_at: fixed discovery of our IPv6 address
+
+2015-05-09  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c, src/worker-vpn.c, src/worker.h: added MTU discovery
+	and adjustment in IPv6
+
+2015-05-08  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/gssapi.c, src/auth/pam.c, src/auth/plain.c,
+	src/auth/radius.c, src/auth/radius.h, src/ipc.proto,
+	src/sec-mod-auth.c, src/sec-mod-auth.h, src/worker-auth.c: radius:
+	set our IP in the request explicitly
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/README.radius: radius: removed documentation for
+	Framed-IPv6-Route It was superseded by Route-IPv6-Information
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/README.radius, src/auth/radius.c: radius: added support for
+	Delegated-IPv6-Prefix
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c, src/auth/pam.c, src/auth/plain.c,
+	src/auth/radius.c, src/auth/radius.h, src/main-ctl-unix.c,
+	src/sec-mod-auth.c, src/sec-mod-auth.h, src/sec-mod.c,
+	src/sec-mod.h, src/system.c, src/system.h: radius: put the process
+	ID into NAS-Port
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/radius.c: radius: removed NAS-PORT-TYPE from accounting
+	requests
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/README.radius: README.radius: added new attributes
+
+2015-05-11  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/ocserv-args.def, src/vpn.h: Revert "allow
+	specifying a subnet id" This reverts commit 689c5ad56338b4a9ed81ac9a58d13689a24ba955.
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/ipv6-prefix.c: tests: added ipv6-prefix
+	unit test
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c, src/common.h, src/ip-lease.c: enhanced
+	ipv6_prefix_to_mask
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c, src/ocserv-args.def, src/vpn.h: allow specifying a
+	subnet id
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c, src/common.h: ipv4_prefix_to_mask: enhanced to
+	handle all possible prefixes
+
+2015-05-07  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/Makefile.am, tests/ipv4-prefix.c: tests: added unit test for
+	ipv4_prefix_to_mask()
+
+2015-05-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-sec-mod-cmd.c, src/worker-misc.c: restore recvmsg
+
+2015-05-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/ocserv-args.def: doc update
+
+2015-05-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-05-06  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* doc/sample.config, src/config.c, src/ocserv-args.def,
+	src/sec-mod-auth.c, src/sec-mod-db.c, src/sec-mod.h, src/vpn.h: 
+	added config option 'persistent-cookies' When it is set, it doesn't invalidate cookies after user
+	disconnection.
+
+2015-05-06  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: sec-mod: terminate a client session
+	immediately only if there is a single user
+
+2015-05-05  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-05  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/README.radius, doc/sample.config, src/auth/radius.c,
+	src/auth/radius.h, src/cfg.h, src/ipc.proto, src/main-auth.c,
+	src/main-sec-mod-cmd.c, src/main.h, src/ocserv-args.def,
+	src/sec-mod-auth.c, src/sec-mod-auth.h, src/subconfig.c,
+	src/worker-auth.c: radius: consider Acct-Interim-Interval by default That can also be overriden by specifying
+	'override-interim-updates=true' in the radius subconfig.
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/ipc.proto, src/main-sec-mod-cmd.c, src/sec-mod-auth.c: radius:
+	send IP address on session start
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* TODO: updated TODO
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: doc: use the "proper" URL
+	for kdcproxy
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-ocserv/Dockerfile-debian-radius,
+	tests/docker-ocserv/Dockerfile-fedora-radius,
+	tests/docker-ocserv/Makefile.am, tests/docker-ocserv/ca.pem,
+	tests/docker-ocserv/ocserv-radius.conf, tests/radius-test: tests:
+	added check for radius accounting with certificates
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c: force_read: handle EOF from fd
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: radius: properly close accounting for
+	certificate sessions
+
+2015-05-04  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/common.c: common: corrected select loops
+
+2015-05-03  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/main-misc.c: allow the _timeout functions to
+	operate without a timeout
+
+2015-05-03  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/common.c, src/common.h, src/main-sec-mod-cmd.c, src/tlslib.c,
+	src/worker-auth.c, src/worker-resume.c, src/worker-vpn.c: 
+	selectively specify timeout in recv when needed
+
+2015-05-03  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/acct/radius.c: radius acct: corrected type of value in data
+	setting
+
+2015-05-03  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/auth/radius.c: radisu: always send NAS_PORT_TYPE
+
+2015-05-02  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* NEWS: doc update
+
+2015-05-02  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main.c: updated message
+
+2015-05-02  Nikos Mavrogiannopoulos <nmav@gnutls.org>
+
+	* src/main-sec-mod-cmd.c: main: do not impose timeout when reading
+	from sec-mod
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/ocserv-args.def: increased the
+	tgt-freshness-time in examples
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/auth/gssapi.c: gssapi: avoid comparison with null mechanism
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-http.c: updated comment
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: corrected termination of sessions which had no
+	associated module (i.e., certificate)
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS, src/acct/radius.c, src/ipc.proto, src/main.h,
+	src/sec-mod-acct.h, src/sec-mod-auth.c, src/sec-mod.h, src/vpn.h,
+	src/worker-vpn.c: radius: distinguish between user disconnect and
+	admin reset of worker process
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/docker-kerberos/Dockerfile-fedora-client,
+	tests/docker-kerberos/ocserv.conf, tests/kerberos-test: tests:
+	verify tgt-freshness-time in Kerberos setup
+
+2015-04-29  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* doc/sample.config, src/auth/gssapi.c, src/cfg.h,
+	src/ocserv-args.def, src/subconfig.c: Added config option
+	'tgt-freshness-time' for GSSAPI This allows to set the maximum number of seconds a TGT ticket will
+	be valid for logging in the VPN. That can be used to prevent a valid
+	for a day TGT ticket from being used to login to VPN, and addresses
+	the use-case of where a laptop with a valid TGT ticket is stolen.
+
+2015-04-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* NEWS: doc update
+
+2015-04-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test: tests: updated radius test
+
+2015-04-28  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/sec-mod-auth.c: on explicit user termination notify radious as
+	soon
+
+2015-04-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* TODO: doc update
+
+2015-04-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/config.c: corrected typo in ban-points-connection option
+
+2015-04-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/worker-vpn.c: return more meaningful error code in
+	parse_data()
+
+2015-04-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* src/acct/pam.c, src/acct/radius.c, src/sec-mod-acct.h,
+	src/sec-mod-auth.c: radius: differentiate between user termination
+	and session timeout
+
+2015-04-27  Nikos Mavrogiannopoulos <nmav@redhat.com>
+
+	* tests/radius-test: tests: added check for proper disconnection
+	message in radius
+
 2015-04-27  Nikos Mavrogiannopoulos <nmav@gnutls.org>
 
 	* NEWS, configure.ac: bumped version
