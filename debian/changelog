@@ -1,3 +1,9 @@
+ocserv (0.10.6-1) unstable; urgency=low
+
+  * Imported Upstream version 0.10.6
+
+ -- alan <mrzhaili@gmail.com>  Sat, 04 Jul 2015 21:02:05 +0800
+
 ocserv (0.10.4-1) unstable; urgency=low
 
   * Imported Upstream version 0.10.4
