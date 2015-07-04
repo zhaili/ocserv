@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([ocserv], [0.10.4], [nmav@gnutls.org])
+AC_INIT([ocserv], [0.10.6], [nmav@gnutls.org])
 PKG_PROG_PKG_CONFIG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([gl/m4])
@@ -47,26 +47,6 @@ PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.1.10])
 AC_CHECK_LIB(gnutls, gnutls_pkcs11_reinit, [
 AC_DEFINE([HAVE_PKCS11], [], [PKCS11 detected in gnutls])
 ])
-
-dbus_enabled=no
-AC_ARG_WITH(dbus,
-  AS_HELP_STRING([--with-dbus], [use dbus instead of unix sockets (dbus support is incomplete)]),
-  test_for_dbus=$withval,
-  test_for_dbus=no)
-
-if test "$test_for_dbus" = yes;then
-PKG_CHECK_MODULES([LIBDBUS], [dbus-1 >= 1.1.1],
-dbus_enabled=yes
-AC_DEFINE([HAVE_DBUS], [], [dbus detected]),
-[dbus_enabled=no])
-fi
-
-AM_CONDITIONAL(HAVE_DBUS, test "x$dbus_enabled" != xno)
-
-if test "x$dbus_enabled" != xno;then
-dbus_conf_dir=$($PKG_CONFIG dbus-1 --variable=sysconfdir)
-AC_SUBST(DBUS_CONFIG_DIR, [$dbus_conf_dir/etc/dbus-1/system.d/])
-fi
 
 AC_ARG_WITH(protobuf,
   AS_HELP_STRING([--without-protobuf], [use the included protobuf library]),
@@ -208,25 +188,34 @@ AC_ARG_WITH(radius,
 radius_enabled=no
 
 if test "$test_for_radius" = yes;then
-LIBS="$oldlibs -lfreeradius-client"
-AC_MSG_CHECKING([for freeradius client library])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([
+	PKG_CHECK_MODULES([RADCLI], [radcli >= 1.2.1], radius_enabled=radcli, radius_enabled=no)
+
+	if test "$radius_enabled" = no;then
+		LIBS="$oldlibs -lfreeradius-client"
+		AC_MSG_CHECKING([for freeradius client library])
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([
 		   #include <freeradius-client.h>],[
 #ifndef PW_MAX_MSG_SIZE
 #error 1
 #endif
 		   rc_read_config(0);])],
 		  [AC_MSG_RESULT(yes)
-		   AC_SUBST([FREERADIUS_CLIENT_LIBS], [-lfreeradius-client])
-		   AC_SUBST([FREERADIUS_CLIENT_CFLAGS], [])
-		   radius_enabled=yes
-		   AC_DEFINE([HAVE_RADIUS], 1, [Enable the Radius library])],
+		   AC_SUBST([RADCLI_LIBS], [-lfreeradius-client])
+		   AC_SUBST([RADCLI_CFLAGS], [])
+		   radius_enabled=freeradius-client
+		   AC_DEFINE([LEGACY_RADIUS], 1, [Enable the legacy library support])],
 		  [AC_MSG_RESULT(no)
    	           AC_MSG_WARN([[
 *** 
-*** freeradius-client 1.1.7 or later was not found. Radius support will be disabled.
+*** radcli 1.2.1 or later was not found. Radius support will be disabled.
+*** See http://radcli.github.io/radcli/
 *** ]])])
-LIBS="$oldlibs"
+		LIBS="$oldlibs"
+	fi
+
+	if test "$radius_enabled" != no;then
+		AC_DEFINE([HAVE_RADIUS], 1, [Enable the Radius library])
+	fi
 fi
 
 gl_INIT
@@ -269,7 +258,7 @@ AC_CHECK_MEMBER([struct sockaddr.sa_len],
 AC_CHECK_HEADERS([net/if_tun.h linux/if_tun.h netinet/in_systm.h], [], [], [])
 
 AC_CHECK_FUNCS([setproctitle vasprintf clock_gettime isatty pselect getpeereid sigaltstack])
-AC_CHECK_FUNCS([strlcpy posix_memalign malloc_trim])
+AC_CHECK_FUNCS([strlcpy posix_memalign malloc_trim strsep])
 
 if [ test -z "$LIBWRAP" ];then
 	libwrap_enabled="no"
@@ -498,11 +487,5 @@ Summary of build options:
   local PCL library:    ${with_local_pcl}
   local libopts:        ${enable_local_libopts}
   local http-parser:    ${with_local_http_parser}
-])
-
-AC_MSG_NOTICE([
-
-Options for specific systems:
-  dbus:                 ${dbus_enabled}
 ])
 

@@ -820,7 +820,7 @@ const ProtobufCMessageDescriptor auth_cookie_request_msg__descriptor =
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const protobuf_c_boolean auth_reply_msg__no_udp__default_value = 0;
-static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[25] =
+static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[26] =
 {
   {
     "reply",
@@ -865,18 +865,6 @@ static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[25] =
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
     offsetof(AuthReplyMsg, user_name),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "msg",
-    6,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_STRING,
-    0,   /* quantifier_offset */
-    offsetof(AuthReplyMsg, msg),
     NULL,
     NULL,
     0,             /* flags */
@@ -1122,40 +1110,66 @@ static const ProtobufCFieldDescriptor auth_reply_msg__field_descriptors[25] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "interim_update_secs",
+    31,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(AuthReplyMsg, has_interim_update_secs),
+    offsetof(AuthReplyMsg, interim_update_secs),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "session_timeout_secs",
+    32,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(AuthReplyMsg, has_session_timeout_secs),
+    offsetof(AuthReplyMsg, session_timeout_secs),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned auth_reply_msg__field_indices_by_name[] = {
-  16,   /* field[16] = dns */
-  19,   /* field[19] = group_name */
-  5,   /* field[5] = ipv4 */
-  7,   /* field[7] = ipv4_local */
-  9,   /* field[9] = ipv4_netmask */
-  21,   /* field[21] = ipv4_network */
-  6,   /* field[6] = ipv6 */
-  8,   /* field[8] = ipv6_local */
-  10,   /* field[10] = ipv6_netmask */
-  22,   /* field[22] = ipv6_network */
-  11,   /* field[11] = ipv6_prefix */
-  4,   /* field[4] = msg */
-  17,   /* field[17] = nbns */
-  14,   /* field[14] = net_priority */
-  23,   /* field[23] = no_routes */
-  18,   /* field[18] = no_udp */
+  15,   /* field[15] = dns */
+  18,   /* field[18] = group_name */
+  24,   /* field[24] = interim_update_secs */
+  4,   /* field[4] = ipv4 */
+  6,   /* field[6] = ipv4_local */
+  8,   /* field[8] = ipv4_netmask */
+  20,   /* field[20] = ipv4_network */
+  5,   /* field[5] = ipv6 */
+  7,   /* field[7] = ipv6_local */
+  9,   /* field[9] = ipv6_netmask */
+  21,   /* field[21] = ipv6_network */
+  10,   /* field[10] = ipv6_prefix */
+  16,   /* field[16] = nbns */
+  13,   /* field[13] = net_priority */
+  22,   /* field[22] = no_routes */
+  17,   /* field[17] = no_udp */
   0,   /* field[0] = reply */
-  15,   /* field[15] = routes */
-  12,   /* field[12] = rx_per_sec */
+  14,   /* field[14] = routes */
+  11,   /* field[11] = rx_per_sec */
   1,   /* field[1] = session_id */
-  24,   /* field[24] = sid */
-  13,   /* field[13] = tx_per_sec */
+  25,   /* field[25] = session_timeout_secs */
+  23,   /* field[23] = sid */
+  12,   /* field[12] = tx_per_sec */
   3,   /* field[3] = user_name */
   2,   /* field[2] = vname */
-  20,   /* field[20] = xml_config_file */
+  19,   /* field[19] = xml_config_file */
 };
-static const ProtobufCIntRange auth_reply_msg__number_ranges[3 + 1] =
+static const ProtobufCIntRange auth_reply_msg__number_ranges[4 + 1] =
 {
   { 1, 0 },
   { 3, 1 },
-  { 15, 9 },
-  { 0, 25 }
+  { 7, 4 },
+  { 15, 8 },
+  { 0, 26 }
 };
 const ProtobufCMessageDescriptor auth_reply_msg__descriptor =
 {
@@ -1165,10 +1179,10 @@ const ProtobufCMessageDescriptor auth_reply_msg__descriptor =
   "AuthReplyMsg",
   "",
   sizeof(AuthReplyMsg),
-  25,
+  26,
   auth_reply_msg__field_descriptors,
   auth_reply_msg__field_indices_by_name,
-  3,  auth_reply_msg__number_ranges,
+  4,  auth_reply_msg__number_ranges,
   (ProtobufCMessageInit) auth_reply_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -1465,12 +1479,12 @@ static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[9] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "invalidate_cookie",
+    "discon_reason",
     8,
     PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_BOOL,
-    offsetof(CliStatsMsg, has_invalidate_cookie),
-    offsetof(CliStatsMsg, invalidate_cookie),
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(CliStatsMsg, has_discon_reason),
+    offsetof(CliStatsMsg, discon_reason),
     NULL,
     NULL,
     0,             /* flags */
@@ -1492,7 +1506,7 @@ static const ProtobufCFieldDescriptor cli_stats_msg__field_descriptors[9] =
 static const unsigned cli_stats_msg__field_indices_by_name[] = {
   0,   /* field[0] = bytes_in */
   1,   /* field[1] = bytes_out */
-  7,   /* field[7] = invalidate_cookie */
+  7,   /* field[7] = discon_reason */
   5,   /* field[5] = ipv4 */
   6,   /* field[6] = ipv6 */
   4,   /* field[4] = remote_ip */
@@ -1779,7 +1793,7 @@ const ProtobufCMessageDescriptor ban_ip_reply_msg__descriptor =
 };
 static const protobuf_c_boolean sec_auth_init_msg__tls_auth_ok__default_value = 0;
 static const uint32_t sec_auth_init_msg__auth_type__default_value = 0u;
-static const ProtobufCFieldDescriptor sec_auth_init_msg__field_descriptors[8] =
+static const ProtobufCFieldDescriptor sec_auth_init_msg__field_descriptors[9] =
 {
   {
     "tls_auth_ok",
@@ -1877,6 +1891,18 @@ static const ProtobufCFieldDescriptor sec_auth_init_msg__field_descriptors[8] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "our_ip",
+    10,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(SecAuthInitMsg, our_ip),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned sec_auth_init_msg__field_indices_by_name[] = {
   7,   /* field[7] = auth_type */
@@ -1885,13 +1911,14 @@ static const unsigned sec_auth_init_msg__field_indices_by_name[] = {
   2,   /* field[2] = group_name */
   5,   /* field[5] = hostname */
   6,   /* field[6] = ip */
+  8,   /* field[8] = our_ip */
   0,   /* field[0] = tls_auth_ok */
   1,   /* field[1] = user_name */
 };
 static const ProtobufCIntRange sec_auth_init_msg__number_ranges[1 + 1] =
 {
   { 2, 0 },
-  { 0, 8 }
+  { 0, 9 }
 };
 const ProtobufCMessageDescriptor sec_auth_init_msg__descriptor =
 {
@@ -1901,7 +1928,7 @@ const ProtobufCMessageDescriptor sec_auth_init_msg__descriptor =
   "SecAuthInitMsg",
   "",
   sizeof(SecAuthInitMsg),
-  8,
+  9,
   sec_auth_init_msg__field_descriptors,
   sec_auth_init_msg__field_indices_by_name,
   1,  sec_auth_init_msg__number_ranges,
@@ -1972,7 +1999,7 @@ const ProtobufCMessageDescriptor sec_auth_cont_msg__descriptor =
   (ProtobufCMessageInit) sec_auth_cont_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor sec_auth_reply_msg__field_descriptors[6] =
+static const ProtobufCFieldDescriptor sec_auth_reply_msg__field_descriptors[7] =
 {
   {
     "reply",
@@ -2046,19 +2073,33 @@ static const ProtobufCFieldDescriptor sec_auth_reply_msg__field_descriptors[6] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "passwd_counter",
+    8,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(SecAuthReplyMsg, has_passwd_counter),
+    offsetof(SecAuthReplyMsg, passwd_counter),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned sec_auth_reply_msg__field_indices_by_name[] = {
   1,   /* field[1] = cookie */
   4,   /* field[4] = dtls_session_id */
   3,   /* field[3] = msg */
+  6,   /* field[6] = passwd_counter */
   0,   /* field[0] = reply */
   5,   /* field[5] = sid */
   2,   /* field[2] = user_name */
 };
-static const ProtobufCIntRange sec_auth_reply_msg__number_ranges[1 + 1] =
+static const ProtobufCIntRange sec_auth_reply_msg__number_ranges[2 + 1] =
 {
   { 1, 0 },
-  { 0, 6 }
+  { 8, 6 },
+  { 0, 7 }
 };
 const ProtobufCMessageDescriptor sec_auth_reply_msg__descriptor =
 {
@@ -2068,10 +2109,10 @@ const ProtobufCMessageDescriptor sec_auth_reply_msg__descriptor =
   "SecAuthReplyMsg",
   "",
   sizeof(SecAuthReplyMsg),
-  6,
+  7,
   sec_auth_reply_msg__field_descriptors,
   sec_auth_reply_msg__field_indices_by_name,
-  1,  sec_auth_reply_msg__number_ranges,
+  2,  sec_auth_reply_msg__number_ranges,
   (ProtobufCMessageInit) sec_auth_reply_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -2256,7 +2297,7 @@ const ProtobufCMessageDescriptor cookie__descriptor =
   (ProtobufCMessageInit) cookie__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[5] =
+static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[7] =
 {
   {
     "sid",
@@ -2318,18 +2359,44 @@ static const ProtobufCFieldDescriptor sec_auth_session_msg__field_descriptors[5]
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "ipv4",
+    6,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(SecAuthSessionMsg, ipv4),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "ipv6",
+    7,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(SecAuthSessionMsg, ipv6),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned sec_auth_session_msg__field_indices_by_name[] = {
   3,   /* field[3] = bytes_in */
   4,   /* field[4] = bytes_out */
   1,   /* field[1] = cookie */
+  5,   /* field[5] = ipv4 */
+  6,   /* field[6] = ipv6 */
   0,   /* field[0] = sid */
   2,   /* field[2] = uptime */
 };
 static const ProtobufCIntRange sec_auth_session_msg__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 5 }
+  { 0, 7 }
 };
 const ProtobufCMessageDescriptor sec_auth_session_msg__descriptor =
 {
@@ -2339,14 +2406,14 @@ const ProtobufCMessageDescriptor sec_auth_session_msg__descriptor =
   "SecAuthSessionMsg",
   "",
   sizeof(SecAuthSessionMsg),
-  5,
+  7,
   sec_auth_session_msg__field_descriptors,
   sec_auth_session_msg__field_indices_by_name,
   1,  sec_auth_session_msg__number_ranges,
   (ProtobufCMessageInit) sec_auth_session_msg__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descriptors[19] =
+static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descriptors[21] =
 {
   {
     "reply",
@@ -2356,6 +2423,30 @@ static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descript
     0,   /* quantifier_offset */
     offsetof(SecAuthSessionReplyMsg, reply),
     &auth__rep__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "interim_update_secs",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(SecAuthSessionReplyMsg, has_interim_update_secs),
+    offsetof(SecAuthSessionReplyMsg, interim_update_secs),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "session_timeout_secs",
+    3,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(SecAuthSessionReplyMsg, has_session_timeout_secs),
+    offsetof(SecAuthSessionReplyMsg, session_timeout_secs),
+    NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2578,32 +2669,34 @@ static const ProtobufCFieldDescriptor sec_auth_session_reply_msg__field_descript
   },
 };
 static const unsigned sec_auth_session_reply_msg__field_indices_by_name[] = {
-  11,   /* field[11] = cgroup */
-  2,   /* field[2] = deny_roaming */
-  5,   /* field[5] = dns */
-  16,   /* field[16] = explicit_ipv4 */
-  17,   /* field[17] = explicit_ipv6 */
-  7,   /* field[7] = ipv4_net */
-  8,   /* field[8] = ipv4_netmask */
-  9,   /* field[9] = ipv6_net */
-  10,   /* field[10] = ipv6_prefix */
-  4,   /* field[4] = iroutes */
-  6,   /* field[6] = nbns */
-  15,   /* field[15] = net_priority */
-  18,   /* field[18] = no_routes */
-  1,   /* field[1] = no_udp */
+  13,   /* field[13] = cgroup */
+  4,   /* field[4] = deny_roaming */
+  7,   /* field[7] = dns */
+  18,   /* field[18] = explicit_ipv4 */
+  19,   /* field[19] = explicit_ipv6 */
+  1,   /* field[1] = interim_update_secs */
+  9,   /* field[9] = ipv4_net */
+  10,   /* field[10] = ipv4_netmask */
+  11,   /* field[11] = ipv6_net */
+  12,   /* field[12] = ipv6_prefix */
+  6,   /* field[6] = iroutes */
+  8,   /* field[8] = nbns */
+  17,   /* field[17] = net_priority */
+  20,   /* field[20] = no_routes */
+  3,   /* field[3] = no_udp */
   0,   /* field[0] = reply */
-  3,   /* field[3] = routes */
-  13,   /* field[13] = rx_per_sec */
-  14,   /* field[14] = tx_per_sec */
-  12,   /* field[12] = xml_config_file */
+  5,   /* field[5] = routes */
+  15,   /* field[15] = rx_per_sec */
+  2,   /* field[2] = session_timeout_secs */
+  16,   /* field[16] = tx_per_sec */
+  14,   /* field[14] = xml_config_file */
 };
 static const ProtobufCIntRange sec_auth_session_reply_msg__number_ranges[3 + 1] =
 {
   { 1, 0 },
-  { 10, 1 },
-  { 13, 3 },
-  { 0, 19 }
+  { 10, 3 },
+  { 13, 5 },
+  { 0, 21 }
 };
 const ProtobufCMessageDescriptor sec_auth_session_reply_msg__descriptor =
 {
@@ -2613,7 +2706,7 @@ const ProtobufCMessageDescriptor sec_auth_session_reply_msg__descriptor =
   "SecAuthSessionReplyMsg",
   "",
   sizeof(SecAuthSessionReplyMsg),
-  19,
+  21,
   sec_auth_session_reply_msg__field_descriptors,
   sec_auth_session_reply_msg__field_indices_by_name,
   3,  sec_auth_session_reply_msg__number_ranges,

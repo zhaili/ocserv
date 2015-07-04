@@ -26,6 +26,8 @@
 #include <ccan/htable/htable.h>
 #include <base64.h>
 
+#define SESSION_STR "(session: %.5s)"
+
 typedef struct sec_mod_st {
 	gnutls_datum_t dcookie_key; /* the key to generate cookies */
 	uint8_t cookie_key[COOKIE_KEY_SIZE];
@@ -36,6 +38,7 @@ typedef struct sec_mod_st {
 	unsigned key_size;
 	struct htable *client_db;
 	int cmd_fd;
+	int cmd_fd_sync;
 
 	struct config_mod_st *config_module;
 } sec_mod_st;
@@ -51,8 +54,10 @@ typedef struct common_auth_info_st {
 	char groupname[MAX_GROUPNAME_SIZE]; /* the owner's group */
 	char psid[BASE64_LENGTH(SID_SIZE) + 1]; /* printable */
 	char remote_ip[MAX_IP_STR];
+	char our_ip[MAX_IP_STR];
 	char ipv4[MAX_IP_STR];
 	char ipv6[MAX_IP_STR];
+	unsigned id;
 } common_auth_info_st;
 
 typedef struct client_entry_st {
@@ -69,6 +74,7 @@ typedef struct client_entry_st {
 	unsigned tls_auth_ok;
 
 	char *msg_str;
+	unsigned passwd_counter; /* if msg_str is for a password this indicates the passwrd number (0,1,2) */
 
 	stats_st saved_stats; /* saved from previous cookie usage */
 	stats_st stats; /* current */
@@ -86,6 +92,7 @@ typedef struct client_entry_st {
 
 	/* the auth type associated with the user */
 	unsigned auth_type;
+	unsigned discon_reason; /* reason for disconnection */
 
 	struct common_auth_info_st auth_info;
 
@@ -96,7 +103,7 @@ typedef struct client_entry_st {
 void *sec_mod_client_db_init(sec_mod_st *sec);
 void sec_mod_client_db_deinit(sec_mod_st *sec);
 unsigned sec_mod_client_db_elems(sec_mod_st *sec);
-client_entry_st * new_client_entry(sec_mod_st *sec, const char *ip);
+client_entry_st * new_client_entry(sec_mod_st *sec, const char *ip, unsigned pid);
 client_entry_st * find_client_entry(sec_mod_st *sec, uint8_t sid[SID_SIZE]);
 void del_client_entry(sec_mod_st *sec, client_entry_st * e);
 void expire_client_entry(sec_mod_st *sec, client_entry_st * e);
@@ -119,14 +126,14 @@ void  seclog_hex(const struct sec_mod_st* sec, int priority,
 
 void sec_auth_init(sec_mod_st *sec, struct perm_cfg_st *config);
 
-void handle_sec_auth_ban_ip_reply(int cfd, sec_mod_st *sec, const BanIpReplyMsg *msg);
-int handle_sec_auth_init(int cfd, sec_mod_st *sec, const SecAuthInitMsg * req);
+void handle_sec_auth_ban_ip_reply(sec_mod_st *sec, const BanIpReplyMsg *msg);
+int handle_sec_auth_init(int cfd, sec_mod_st *sec, const SecAuthInitMsg * req, pid_t pid);
 int handle_sec_auth_cont(int cfd, sec_mod_st *sec, const SecAuthContMsg * req);
-int handle_sec_auth_session_cmd(int cfd, sec_mod_st *sec, const SecAuthSessionMsg *req, unsigned cmd);
+int handle_sec_auth_session_cmd(sec_mod_st *sec, int fd, const SecAuthSessionMsg *req, unsigned cmd);
 int handle_sec_auth_stats_cmd(sec_mod_st * sec, const CliStatsMsg * req);
 void sec_auth_user_deinit(sec_mod_st * sec, client_entry_st * e);
 
 void sec_mod_server(void *main_pool, struct perm_cfg_st *config, const char *socket_file,
-		    uint8_t cookie_key[COOKIE_KEY_SIZE], int cmd_fd);
+		    uint8_t cookie_key[COOKIE_KEY_SIZE], int cmd_fd, int cmd_fd_sync);
 
 #endif

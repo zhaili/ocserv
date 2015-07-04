@@ -50,7 +50,7 @@
 #include <main.h>
 #include <ctl.h>
 #include <tlslib.h>
-#include "cfg.h"
+#include "common-config.h"
 
 #define OLD_DEFAULT_CFG_FILE "/etc/ocserv.conf"
 #define DEFAULT_CFG_FILE "/etc/ocserv/ocserv.conf"
@@ -81,7 +81,7 @@ static struct cfg_options available_options[] = {
 	{ .name = "tcp-port", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "max-ban-score", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "ban-points-wrong-password", .type = OPTION_NUMERIC, .mandatory = 0 },
-	{ .name = "ban-connection", .type = OPTION_NUMERIC, .mandatory = 0 },
+	{ .name = "ban-points-connection", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "ban-points-kkdcp", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "udp-port", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "keepalive", .type = OPTION_NUMERIC, .mandatory = 0 },
@@ -93,7 +93,9 @@ static struct cfg_options available_options[] = {
 	{ .name = "server-key", .type = OPTION_STRING, .mandatory = 1 },
 	{ .name = "dh-params", .type = OPTION_STRING, .mandatory = 0 },
 	{ .name = "pin-file", .type = OPTION_STRING, .mandatory = 0 },
+	{ .name = "key-pin", .type = OPTION_STRING, .mandatory = 0 },
 	{ .name = "srk-pin-file", .type = OPTION_STRING, .mandatory = 0 },
+	{ .name = "srk-pin", .type = OPTION_STRING, .mandatory = 0 },
 	{ .name = "user-profile", .type = OPTION_STRING, .mandatory = 0 },
 	{ .name = "ca-cert", .type = OPTION_STRING, .mandatory = 0 },
 	{ .name = "default-domain", .type = OPTION_STRING, .mandatory = 0 },
@@ -122,6 +124,7 @@ static struct cfg_options available_options[] = {
 	{ .name = "deny-roaming", .type = OPTION_BOOLEAN, .mandatory = 0 },
 	{ .name = "use-utmp", .type = OPTION_BOOLEAN, .mandatory = 0 },
 	{ .name = "use-dbus", .type = OPTION_BOOLEAN, .mandatory = 0 },
+	{ .name = "persistent-cookies", .type = OPTION_BOOLEAN, .mandatory = 0 },
 	{ .name = "use-occtl", .type = OPTION_BOOLEAN, .mandatory = 0 },
 	{ .name = "try-mtu-discovery", .type = OPTION_BOOLEAN, .mandatory = 0 },
 	{ .name = "ping-leases", .type = OPTION_BOOLEAN, .mandatory = 0 },
@@ -131,6 +134,7 @@ static struct cfg_options available_options[] = {
 	{ .name = "net-priority", .type = OPTION_STRING, .mandatory = 0 },
 	{ .name = "output-buffer", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "cookie-timeout", .type = OPTION_NUMERIC, .mandatory = 0 },
+	{ .name = "session-timeout", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "stats-report-time", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "rekey-time", .type = OPTION_NUMERIC, .mandatory = 0 },
 	{ .name = "rekey-method", .type = OPTION_STRING, .mandatory = 0 },
@@ -188,23 +192,10 @@ unsigned j;
 #define READ_MULTI_LINE(name, s_name, num) { \
 	val = get_option(name, &mand); \
 	if (val != NULL && val->valType == OPARG_TYPE_STRING) { \
-		if (s_name == NULL) { \
-			num = 0; \
-			s_name = talloc_size(config, sizeof(char*)*MAX_CONFIG_ENTRIES); \
-			if (s_name == NULL) { \
-				fprintf(stderr, "memory error\n"); \
-				exit(1); \
-			} \
+		if (add_multi_line_val(config, name, &s_name, &num, pov, val) < 0) { \
+			fprintf(stderr, "memory error\n"); \
+			exit(1); \
 		} \
-		do { \
-		        if (val && strcmp(val->pzName, name)!=0) \
-				continue; \
-		        s_name[num] = talloc_strdup(s_name, val->v.strVal); \
-		        num++; \
-		        if (num>=MAX_CONFIG_ENTRIES) \
-		        break; \
-	      } while((val = optionNextValue(pov, val)) != NULL); \
-	      s_name[num] = NULL; \
 	} else if (mand != 0) { \
 		fprintf(stderr, "Configuration option %s is mandatory.\n", name); \
 		exit(1); \
@@ -215,8 +206,8 @@ unsigned j;
 	if (val != NULL && val->valType == OPARG_TYPE_STRING) { \
 		if (s_name == NULL || s_name2 == NULL) { \
 			num = 0; \
-			s_name = talloc_size(config, sizeof(char*)*MAX_CONFIG_ENTRIES); \
-			s_name2 = talloc_size(config, sizeof(char*)*MAX_CONFIG_ENTRIES); \
+			s_name = talloc_size(config, sizeof(char*)*DEFAULT_CONFIG_ENTRIES); \
+			s_name2 = talloc_size(config, sizeof(char*)*DEFAULT_CONFIG_ENTRIES); \
 			if (s_name == NULL || s_name2 == NULL) { \
 				fprintf(stderr, "memory error\n"); \
 				exit(1); \
@@ -230,7 +221,7 @@ unsigned j;
 		        xp = strchr(s_name[num], '['); if (xp != NULL) *xp = 0; \
 		        s_name2[num] = get_brackets_string1(config, val->v.strVal); \
 		        num++; \
-		        if (num>=MAX_CONFIG_ENTRIES) \
+		        if (num>=DEFAULT_CONFIG_ENTRIES) \
 		        break; \
 	      } while((val = optionNextValue(pov, val)) != NULL); \
 	      s_name[num] = NULL; \
@@ -381,6 +372,9 @@ static void figure_auth_funcs(struct perm_cfg_st *config, char **auth, unsigned 
 	unsigned j, i;
 	unsigned found;
 
+	if (auth == NULL)
+		return;
+
 	if (primary != 0) {
 		/* Set the primary authentication methods */
 		for (j=0;j<auth_size;j++) {
@@ -453,7 +447,6 @@ static void figure_auth_funcs(struct perm_cfg_st *config, char **auth, unsigned 
 			talloc_free(auth[j]);
 		}
 		config->auth_methods = x;
-
 	}
 	talloc_free(auth);
 }
@@ -524,45 +517,9 @@ static void parse_kkdcp(struct cfg_st *config, char **urlfw, unsigned urlfw_size
 	config->kkdcp_size = 0;
 
 	for (i=0;i<urlfw_size;i++) {
-		path = urlfw[i];
-		realm = strchr(path, ' ');
-		if (realm == NULL) {
-			fprintf(stderr, "Cannot parse kkdcp string: %s\n", path);
-			exit(1);
-		}
-
-		*realm = 0;
-		realm++;
-		while (c_isspace(*realm))
-			realm++;
-
-		server = strchr(realm, ' ');
-		if (server == NULL) {
-			fprintf(stderr, "Cannot parse kkdcp string: %s\n", realm);
-			exit(1);
-		}
-
-		while (c_isspace(*server))
-			server++;
-
 		memset(&hints, 0, sizeof(hints));
-		if (strncmp(server, "udp@", 4) == 0) {
-			hints.ai_socktype = SOCK_DGRAM;
-		} else if (strncmp(server, "tcp@", 4) == 0) {
-			hints.ai_socktype = SOCK_STREAM;
-		} else {
-			fprintf(stderr, "cannot handle protocol %s\n", server);
-			exit(1);
-		}
-		server += 4;
 
-		port = strchr(server, ':');
-		if (port == NULL) {
-			fprintf(stderr, "No server port specified in: %s\n", server);
-			exit(1);
-		}
-		*port = 0;
-		port++;
+		parse_kkdcp_string(urlfw[i], &hints.ai_socktype, &port, &server, &path, &realm);
 
 		ret = getaddrinfo(server, port, &hints, &res);
 		if (ret != 0) {
@@ -613,7 +570,7 @@ tOptionValue const * pov;
 const tOptionValue* val, *prev;
 unsigned j, i, mand;
 char** auth = NULL;
-unsigned auth_size = 0;
+size_t auth_size = 0;
 unsigned prefix = 0, auto_select_group = 0;
 unsigned prefix4 = 0;
 char *tmp;
@@ -621,7 +578,7 @@ unsigned force_cert_auth;
 struct cfg_st *config = perm_config->config;
 #ifdef HAVE_GSSAPI
 char **urlfw = NULL;
-unsigned urlfw_size = 0;
+size_t urlfw_size = 0;
 #endif
 
 	pov = configFileLoad(file);
@@ -697,6 +654,23 @@ unsigned urlfw_size = 0;
 			}
 			perm_config->gid = grp->gr_gid;
 		}
+
+		READ_MULTI_LINE("server-cert", perm_config->cert, perm_config->cert_size);
+		READ_MULTI_LINE("server-key", perm_config->key, perm_config->key_size);
+		READ_STRING("dh-params", perm_config->dh_params_file);
+		READ_STRING("pin-file", perm_config->pin_file);
+		READ_STRING("srk-pin-file", perm_config->srk_pin_file);
+		READ_STRING("ca-cert", perm_config->ca);
+
+		READ_STRING("key-pin", perm_config->key_pin);
+		READ_STRING("srk-pin", perm_config->srk_pin);
+
+		PREAD_STRING(perm_config, "socket-file", perm_config->socket_file_prefix);
+		PREAD_STRING(perm_config, "occtl-socket-file", perm_config->occtl_socket_file);
+		if (perm_config->occtl_socket_file == NULL)
+			perm_config->occtl_socket_file = talloc_strdup(perm_config, OCCTL_UNIX_SOCKET);
+
+		PREAD_STRING(perm_config, "chroot-dir", perm_config->chroot_dir);
 	}
 
 	/* When adding allocated data, remember to modify
@@ -724,16 +698,11 @@ unsigned urlfw_size = 0;
 	READ_NUMERIC("rate-limit-ms", config->rate_limit_ms);
 
 	READ_STRING("ocsp-response", config->ocsp_response);
-	READ_MULTI_LINE("server-cert", config->cert, config->cert_size);
-	READ_MULTI_LINE("server-key", config->key, config->key_size);
-	READ_STRING("dh-params", config->dh_params_file);
-	READ_STRING("pin-file", config->pin_file);
-	READ_STRING("srk-pin-file", config->srk_pin_file);
+
 #ifdef ANYCONNECT_CLIENT_COMPAT
 	READ_STRING("user-profile", config->xml_config_file);
 #endif
 
-	READ_STRING("ca-cert", config->ca);
 	READ_STRING("default-domain", config->default_domain);
 	READ_STRING("crl", config->crl);
 	READ_STRING("cert-user-oid", config->cert_user_oid);
@@ -745,11 +714,6 @@ unsigned urlfw_size = 0;
 	if (reload == 0 && pid_file[0] == 0)
 		READ_STATIC_STRING("pid-file", pid_file);
 
-
-	PREAD_STRING(perm_config, "socket-file", perm_config->socket_file_prefix);
-	PREAD_STRING(perm_config, "occtl-socket-file", perm_config->occtl_socket_file);
-	if (perm_config->occtl_socket_file == NULL)
-		perm_config->occtl_socket_file = talloc_strdup(perm_config, OCCTL_UNIX_SOCKET);
 
 	val = get_option("session-control", NULL);
 	if (val != NULL) {
@@ -777,10 +741,9 @@ unsigned urlfw_size = 0;
 	} else {
 		READ_TF("isolate-workers", config->isolate, 0);
 	}
-#if !defined(HAVE_LIBSECCOMP) && !defined(ENABLE_LINUX_NS)
+#if !defined(HAVE_LIBSECCOMP)
 	if (config->isolate != 0) {
 		fprintf(stderr, "error: 'isolate-workers' is set to true, but not compiled with seccomp or Linux namespaces support\n");
-		exit(1);
 	}
 #endif
 
@@ -802,7 +765,6 @@ unsigned urlfw_size = 0;
 	READ_TF("ping-leases", config->ping_leases, 0);
 
 	READ_STRING("tls-priorities", config->priorities);
-	PREAD_STRING(perm_config, "chroot-dir", perm_config->chroot_dir);
 
 	READ_NUMERIC("mtu", config->default_mtu);
 
@@ -840,6 +802,9 @@ unsigned urlfw_size = 0;
 	READ_NUMERIC("cookie-timeout", config->cookie_timeout);
 	if (config->cookie_timeout == 0)
 		config->cookie_timeout = DEFAULT_COOKIE_RECON_TIMEOUT;
+	READ_TF("persistent-cookies", config->persistent_cookies, 0);
+
+	READ_NUMERIC("session-timeout", config->session_timeout);
 
 	READ_NUMERIC("auth-timeout", config->auth_timeout);
 	READ_NUMERIC("idle-timeout", config->idle_timeout);
@@ -984,7 +949,7 @@ static void check_cfg(struct perm_cfg_st *perm_config)
 		exit(1);
 	}
 
-	if (perm_config->config->cert_size != perm_config->config->key_size) {
+	if (perm_config->cert_size != perm_config->key_size) {
 		fprintf(stderr, "The specified number of keys doesn't match the certificates\n");
 		exit(1);
 	}
@@ -1015,8 +980,8 @@ static void check_cfg(struct perm_cfg_st *perm_config)
 	}
 
 #ifdef ANYCONNECT_CLIENT_COMPAT
-	if (perm_config->config->cert) {
-		perm_config->config->cert_hash = calc_sha1_hash(perm_config->config, perm_config->config->cert[0], 1);
+	if (perm_config->cert && perm_config->cert_hash == NULL) {
+		perm_config->cert_hash = calc_sha1_hash(perm_config, perm_config->cert[0], 1);
 	}
 
 	if (perm_config->config->xml_config_file) {
@@ -1094,7 +1059,6 @@ unsigned i;
 #ifdef ANYCONNECT_CLIENT_COMPAT
 	DEL(perm_config->config->xml_config_file);
 	DEL(perm_config->config->xml_config_hash);
-	DEL(perm_config->config->cert_hash);
 #endif
 	DEL(perm_config->config->cgroup);
 	DEL(perm_config->config->route_add_cmd);
@@ -1105,10 +1069,6 @@ unsigned i;
 
 	DEL(perm_config->config->ocsp_response);
 	DEL(perm_config->config->banner);
-	DEL(perm_config->config->dh_params_file);
-	DEL(perm_config->config->pin_file);
-	DEL(perm_config->config->srk_pin_file);
-	DEL(perm_config->config->ca);
 	DEL(perm_config->config->crl);
 	DEL(perm_config->config->cert_user_oid);
 	DEL(perm_config->config->cert_group_oid);
@@ -1140,12 +1100,6 @@ unsigned i;
 	for (i=0;i<perm_config->config->network.nbns_size;i++)
 		DEL(perm_config->config->network.nbns[i]);
 	DEL(perm_config->config->network.nbns);
-	for (i=0;i<perm_config->config->key_size;i++)
-		DEL(perm_config->config->key[i]);
-	DEL(perm_config->config->key);
-	for (i=0;i<perm_config->config->cert_size;i++)
-		DEL(perm_config->config->cert[i]);
-	DEL(perm_config->config->cert);
 	for (i=0;i<perm_config->config->custom_header_size;i++)
 		DEL(perm_config->config->custom_header[i]);
 	DEL(perm_config->config->custom_header);
@@ -1173,9 +1127,6 @@ void print_version(tOptions *opts, tOptDesc *desc)
 	fprintf(stderr, "\n\nCompiled with ");
 #ifdef HAVE_LIBSECCOMP
 	fprintf(stderr, "seccomp, ");
-#endif
-#ifdef ENABLE_LINUX_NS
-	fprintf(stderr, "Linux-NS, ");
 #endif
 #ifdef HAVE_LIBWRAP
 	fprintf(stderr, "tcp-wrappers, ");
@@ -1242,4 +1193,37 @@ void remove_pid_file(void)
 		return;
 
 	remove(pid_file);
+}
+
+int add_multi_line_val(void *pool, const char *name, char ***s_name, size_t *num,
+		       tOptionValue const *pov,
+		       const tOptionValue *val)
+{
+	unsigned _max = DEFAULT_CONFIG_ENTRIES;
+	void *tmp;
+
+	if (*s_name == NULL) {
+		*num = 0;
+		*s_name = talloc_array(pool, char*, _max);
+		if (*s_name == NULL)
+			return -1;
+	}
+
+	do {
+	        if (val && strcmp(val->pzName, name)!=0)
+			continue;
+
+	        if (*num >= _max-1) {
+	        	_max += 128;
+	        	tmp = talloc_realloc(pool, *s_name, char*, _max);
+			if (tmp == NULL)
+				return -1;
+			*s_name = tmp;
+	        }
+
+	        (*s_name)[*num] = talloc_strdup(*s_name, val->v.strVal);
+	        (*num)++;
+      } while((val = optionNextValue(pov, val)) != NULL);
+      (*s_name)[*num] = NULL;
+      return 0;
 }

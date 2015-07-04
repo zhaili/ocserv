@@ -27,13 +27,18 @@
 #define MAX_AUTH_REQS 8
 #define MAX_GROUPS 32
 
+typedef struct passwd_msg_st {
+	char *msg_str;
+	unsigned counter;
+} passwd_msg_st;
+
 typedef struct auth_mod_st {
 	unsigned int type;
 	unsigned int allows_retries; /* whether the module allows retries of the same password */
 	void (*global_init)(void *pool, void* additional);
 	void (*global_deinit)(void);
-	int (*auth_init)(void** ctx, void *pool, const char* username, const char* ip);
-	int (*auth_msg)(void* ctx, void *pool, char** msg);
+	int (*auth_init)(void** ctx, void *pool, const char* username, const char *remote_ip, const char *our_ip, unsigned id);
+	int (*auth_msg)(void* ctx, void *pool, passwd_msg_st *);
 	int (*auth_pass)(void* ctx, const char* pass, unsigned pass_len);
 	int (*auth_group)(void* ctx, const char *suggested, char *groupname, int groupname_size);
 	int (*auth_user)(void* ctx, char *groupname, int groupname_size);

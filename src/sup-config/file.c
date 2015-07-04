@@ -34,6 +34,7 @@
 
 #include <vpn.h>
 #include <main.h>
+#include <common-config.h>
 #include <sec-mod-sup-config.h>
 
 struct cfg_options {
@@ -64,24 +65,14 @@ static struct cfg_options available_options[] = {
 	{ .name = "net-priority", .type = OPTION_STRING },
 	{ .name = "cgroup", .type = OPTION_STRING },
 	{ .name = "user-profile", .type = OPTION_STRING },
+	{ .name = "session-timeout", .type = OPTION_NUMERIC},
+	{ .name = "stats-report-time", .type = OPTION_NUMERIC}
 };
 
 #define READ_RAW_MULTI_LINE(name, s_name, num) { \
 	val = optionGetValue(pov, name); \
 	if (val != NULL && val->valType == OPARG_TYPE_STRING) { \
-		if (s_name == NULL) { \
-			num = 0; \
-			s_name = talloc_size(pool, sizeof(char*)*MAX_CONFIG_ENTRIES); \
-		} \
-		do { \
-		        if (num >= MAX_CONFIG_ENTRIES) \
-			        break; \
-		        if (val && strcmp(val->pzName, name)!=0) \
-				continue; \
-		        s_name[num] = talloc_strdup(pool, val->v.strVal); \
-		        num++; \
-	      } while((val = optionNextValue(pov, val)) != NULL); \
-	      s_name[num] = NULL; \
+		add_multi_line_val(pool, name, &s_name, &num, pov, val); \
 	}}
 
 #define READ_RAW_STRING(name, s_name) { \
@@ -120,16 +111,16 @@ static struct cfg_options available_options[] = {
 		} \
 	}}
 
-#define READ_TF(name, s_name, def) { \
+#define READ_TF(name, s_name, is_set) { \
 	{ char* tmp_tf = NULL; \
 		READ_RAW_STRING(name, tmp_tf); \
-		if (tmp_tf == NULL) { def = 0; \
+		if (tmp_tf == NULL) { is_set = 0; \
 		} else { \
 			if (c_strcasecmp(tmp_tf, "true") == 0 || c_strcasecmp(tmp_tf, "yes") == 0) \
 				s_name = 1; \
 			else \
 				s_name = 0; \
-			def = 1; \
+			is_set = 1; \
 		} \
 		talloc_free(tmp_tf); \
 	}}
@@ -225,6 +216,9 @@ unsigned prefix = 0;
 	READ_RAW_NUMERIC("tx-data-per-sec", msg->tx_per_sec, msg->has_tx_per_sec);
 	msg->rx_per_sec /= 1000; /* in kb */
 	msg->tx_per_sec /= 1000; /* in kb */
+
+	READ_RAW_NUMERIC("stats-report-time", msg->interim_update_secs, msg->has_interim_update_secs);
+	READ_RAW_NUMERIC("session-timeout", msg->session_timeout_secs, msg->has_session_timeout_secs);
 	
 	/* net-priority will contain the actual priority + 1,
 	 * to allow having zero as uninitialized. */

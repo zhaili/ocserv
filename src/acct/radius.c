@@ -31,11 +31,16 @@
 
 #ifdef HAVE_RADIUS
 
-#include <freeradius-client.h>
+#ifdef LEGACY_RADIUS
+# include <freeradius-client.h>
+#else
+# include <radcli/radcli.h>
+#endif
+
 #include <sec-mod-acct.h>
 #include "auth/radius.h"
 #include "acct/radius.h"
-#include "cfg.h"
+#include "common-config.h"
 
 static rc_handle *rh = NULL;
 static char nas_identifier[64];
@@ -77,7 +82,7 @@ static void acct_radius_global_deinit(void)
 
 static void append_stats(rc_handle *rh, VALUE_PAIR **send, stats_st *stats)
 {
-uint32_t uin, uout;
+	uint32_t uin, uout;
 
 	if (stats->uptime) {
 		uin = stats->uptime;
@@ -112,11 +117,30 @@ uint32_t uin, uout;
 
 static void append_acct_standard(rc_handle *rh, const common_auth_info_st *ai, VALUE_PAIR **send)
 {
-	int i;
+	uint32_t i;
 
 	if (nas_identifier[0] != 0) {
 		if (rc_avpair_add(rh, send, PW_NAS_IDENTIFIER, nas_identifier, -1, 0) == NULL) {
 			return;
+		}
+	}
+
+	if (ai->id) {
+		i = ai->id;
+		if (rc_avpair_add(rh, send, PW_NAS_PORT, &i, -1, 0) == NULL) {
+			return;
+		}
+	}
+
+	if (ai->our_ip[0] != 0) {
+		struct in_addr in;
+		struct in6_addr in6;
+
+		if (inet_pton(AF_INET, ai->our_ip, &in) != 0) {
+			in.s_addr = ntohl(in.s_addr);
+			rc_avpair_add(rh, send, PW_NAS_IP_ADDRESS, (char*)&in, sizeof(struct in_addr), 0);
+		} else if (inet_pton(AF_INET6, ai->our_ip, &in6) != 0) {
+			rc_avpair_add(rh, send, PW_NAS_IPV6_ADDRESS, (char*)&in6, sizeof(struct in6_addr), 0);
 		}
 	}
 
@@ -136,19 +160,21 @@ static void append_acct_standard(rc_handle *rh, const common_auth_info_st *ai, V
 
 	if (ai->ipv4[0] != 0) {
 		struct in_addr in;
-		inet_pton(AF_INET, ai->ipv4, &in);
-		in.s_addr = ntohl(in.s_addr);
-		if (rc_avpair_add(rh, send, PW_FRAMED_IP_ADDRESS, &in, sizeof(in), 0) == NULL) {
-			return;
+		if (inet_pton(AF_INET, ai->ipv4, &in) == 1) {
+			in.s_addr = ntohl(in.s_addr);
+			if (rc_avpair_add(rh, send, PW_FRAMED_IP_ADDRESS, &in, sizeof(in), 0) == NULL) {
+				return;
+			}
 		}
 	}
 
-#if 0 /* bug in freeradius-client */
+#ifndef LEGACY_RADIUS /* bug in freeradius-client */
 	if (ai->ipv6[0] != 0) {
 		struct in6_addr in;
-		inet_pton(AF_INET6, ai->ipv6, &in);
-		if (rc_avpair_add(rh, send, PW_FRAMED_IPV6_ADDRESS, &in, sizeof(in), 0) == NULL) {
-			return;
+		if (inet_pton(AF_INET6, ai->ipv6, &in) == 1) {
+			if (rc_avpair_add(rh, send, PW_FRAMED_IPV6_ADDRESS, &in, sizeof(in), 0) == NULL) {
+				return;
+			}
 		}
 	}
 #endif
@@ -163,11 +189,6 @@ static void append_acct_standard(rc_handle *rh, const common_auth_info_st *ai, V
 
 	i = PW_RADIUS;
 	if (rc_avpair_add(rh, send, PW_ACCT_AUTHENTIC, &i, -1, 0) == NULL) {
-		return;
-	}
-
-	i = PW_ASYNC;
-	if (rc_avpair_add(rh, send, PW_NAS_PORT_TYPE, &i, -1, 0) == NULL) {
 		return;
 	}
 
@@ -246,7 +267,7 @@ VALUE_PAIR *send = NULL, *recvd = NULL;
 	return ret;
 }
 
-static void radius_acct_close_session(unsigned auth_method, void *ctx, const common_auth_info_st *ai, stats_st *stats)
+static void radius_acct_close_session(unsigned auth_method, void *ctx, const common_auth_info_st *ai, stats_st *stats, unsigned discon_reason)
 {
 int ret;
 uint32_t status_type;
@@ -258,7 +279,20 @@ VALUE_PAIR *send = NULL, *recvd = NULL;
 	if (rc_avpair_add(rh, &send, PW_ACCT_STATUS_TYPE, &status_type, -1, 0) == NULL)
 		return;
 
-	ret = PW_USER_REQUEST;
+	if (discon_reason == REASON_USER_DISCONNECT)
+		ret = PW_USER_REQUEST;
+	else if (discon_reason == REASON_SERVER_DISCONNECT)
+		ret = PW_ADMIN_RESET;
+	else if (discon_reason == REASON_IDLE_TIMEOUT)
+		ret = PW_ACCT_IDLE_TIMEOUT;
+	else if (discon_reason == REASON_SESSION_TIMEOUT)
+		ret = PW_ACCT_SESSION_TIMEOUT;
+	else if (discon_reason == REASON_DPD_TIMEOUT)
+		ret = PW_LOST_CARRIER;
+	else if (discon_reason == REASON_ERROR)
+		ret = PW_USER_ERROR;
+	else
+		ret = PW_LOST_SERVICE;
 	if (rc_avpair_add(rh, &send, PW_ACCT_TERMINATE_CAUSE, &ret, -1, 0) == NULL) {
 		goto cleanup;
 	}

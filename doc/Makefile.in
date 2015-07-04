@@ -205,7 +205,6 @@ CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
-DBUS_CONFIG_DIR = @DBUS_CONFIG_DIR@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
@@ -220,8 +219,6 @@ EOVERFLOW_HIDDEN = @EOVERFLOW_HIDDEN@
 EOVERFLOW_VALUE = @EOVERFLOW_VALUE@
 ERRNO_H = @ERRNO_H@
 EXEEXT = @EXEEXT@
-FREERADIUS_CLIENT_CFLAGS = @FREERADIUS_CLIENT_CFLAGS@
-FREERADIUS_CLIENT_LIBS = @FREERADIUS_CLIENT_LIBS@
 GNULIB_ATOLL = @GNULIB_ATOLL@
 GNULIB_CALLOC_POSIX = @GNULIB_CALLOC_POSIX@
 GNULIB_CANONICALIZE_FILE_NAME = @GNULIB_CANONICALIZE_FILE_NAME@
@@ -588,8 +585,6 @@ LIBC = @LIBC@
 LIBCRYPT = @LIBCRYPT@
 LIBCRYPT_PREFIX = @LIBCRYPT_PREFIX@
 LIBC_PREFIX = @LIBC_PREFIX@
-LIBDBUS_CFLAGS = @LIBDBUS_CFLAGS@
-LIBDBUS_LIBS = @LIBDBUS_LIBS@
 LIBGNUTLS_CFLAGS = @LIBGNUTLS_CFLAGS@
 LIBGNUTLS_LIBS = @LIBGNUTLS_LIBS@
 LIBGNU_LIBDEPS = @LIBGNU_LIBDEPS@
@@ -686,6 +681,8 @@ PRAGMA_COLUMNS = @PRAGMA_COLUMNS@
 PRAGMA_SYSTEM_HEADER = @PRAGMA_SYSTEM_HEADER@
 PTHREAD_H_DEFINES_STRUCT_TIMESPEC = @PTHREAD_H_DEFINES_STRUCT_TIMESPEC@
 PTRDIFF_T_SUFFIX = @PTRDIFF_T_SUFFIX@
+RADCLI_CFLAGS = @RADCLI_CFLAGS@
+RADCLI_LIBS = @RADCLI_LIBS@
 RANLIB = @RANLIB@
 REPLACE_CALLOC = @REPLACE_CALLOC@
 REPLACE_CANONICALIZE_FILE_NAME = @REPLACE_CANONICALIZE_FILE_NAME@
@@ -877,7 +874,7 @@ top_srcdir = @top_srcdir@
 EXTRA_DIST = design.dia sample.config scripts/ocserv-script sample.passwd \
 	systemd/socket-activated/ocserv.service  systemd/standalone/ocserv.service \
 	systemd/socket-activated/ocserv.socket README.radius \
-	dbus/org.infradead.ocserv.conf profile.xml
+	profile.xml
 
 dist_man_MANS = ocserv.8 ocpasswd.8 occtl.8
 all: all-am
@@ -1030,7 +1027,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@HAVE_DBUS_FALSE@install-data-local:
 clean: clean-am
 
 clean-am: clean-generic mostlyclean-am
@@ -1051,7 +1047,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-data-local install-man
+install-data-am: install-man
 
 install-dvi: install-dvi-am
 
@@ -1104,14 +1100,14 @@ uninstall-man: uninstall-man8
 .PHONY: all all-am check check-am clean clean-generic cscopelist-am \
 	ctags-am distclean distclean-generic distdir dvi dvi-am html \
 	html-am info info-am install install-am install-data \
-	install-data-am install-data-local install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-man8 \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
-	uninstall-am uninstall-man uninstall-man8
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-man8 install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
+	pdf-am ps ps-am tags-am uninstall uninstall-am uninstall-man \
+	uninstall-man8
 
 
 ocserv.8: ../src/ocserv-args.def
@@ -1128,9 +1124,6 @@ ocpasswd.8: ../src/ocpasswd-args.def
 	-sed 's/@subheading \(.*\)/@*\n@var{\1}\n@*/' $< > "$<".tmp && \
 	@AUTOGEN@ -L../src -DMAN_SECTION=8 -Tagman-cmd.tpl "$<".tmp && \
 	rm -f "$<".tmp
-
-@HAVE_DBUS_TRUE@install-data-local:
-@HAVE_DBUS_TRUE@	-test -d "$(DBUS_CONFIG_DIR)" && ! test -f $(DBUS_CONFIG_DIR)/org.infradead.ocserv.conf && $(INSTALL_DATA) dbus/org.infradead.ocserv.conf $(DBUS_CONFIG_DIR)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

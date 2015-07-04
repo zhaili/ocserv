@@ -78,9 +78,7 @@ enum {
 	PS_AUTH_FAILED, /* no tried authenticated but failed */
 	PS_AUTH_INIT, /* worker has sent an auth init msg */
 	PS_AUTH_CONT, /* worker has sent an auth cont msg */
-	PS_AUTH_COMPLETED, /* successful authentication */
-	PS_AUTH_USER_TERM /* user has terminated the session: this state is only valid in sec-mod.
-	                   * The reason for this mode is to indicate the cookie invalidation. */
+	PS_AUTH_COMPLETED /* successful authentication */
 };
 
 /* Each worker process maps to a unique proc_st structure.
@@ -203,7 +201,8 @@ typedef struct main_server_st {
 #else
 	int ctl_fd;
 #endif
-	int sec_mod_fd;
+	int sec_mod_fd; /* messages are sent and received async */
+	int sec_mod_fd_sync; /* messages are send in a sync order (ping-pong). Only main sends. */
 	void *main_pool; /* talloc main pool */
 } main_server_st;
 
@@ -262,12 +261,18 @@ int handle_auth_cookie_req(main_server_st* s, struct proc_st* proc,
 int check_multiple_users(main_server_st *s, struct proc_st* proc);
 int handle_script_exit(main_server_st *s, struct proc_st* proc, int code);
 
-int run_sec_mod(main_server_st * s);
+int run_sec_mod(main_server_st * s, int *sync_fd);
 
 struct proc_st *new_proc(main_server_st * s, pid_t pid, int cmd_fd,
 			struct sockaddr_storage *remote_addr, socklen_t remote_addr_len,
 			uint8_t *sid, size_t sid_size);
-void remove_proc(main_server_st* s, struct proc_st *proc, unsigned k);
+
+/* kill the pid */
+#define RPROC_KILL 1
+/* we are on shutdown, don't wait for anything */
+#define RPROC_QUIT (1<<1)
+
+void remove_proc(main_server_st* s, struct proc_st *proc, unsigned flags);
 void proc_to_zombie(main_server_st* s, struct proc_st *proc);
 
 void put_into_cgroup(main_server_st * s, const char* cgroup, pid_t pid);

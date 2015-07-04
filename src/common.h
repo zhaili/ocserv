@@ -26,6 +26,7 @@
 #include <ipc.pb-c.h>
 #include <talloc.h>
 #include <time.h>
+#include <string.h>
 
 void _talloc_free2(void *ctx, void *ptr);
 void *_talloc_size2(void *ctx, size_t size);
@@ -46,21 +47,13 @@ ssize_t force_read_timeout(int sockfd, void *buf, size_t len, unsigned sec);
 ssize_t recv_timeout(int sockfd, void *buf, size_t len, unsigned sec);
 int ip_cmp(const struct sockaddr_storage *s1, const struct sockaddr_storage *s2);
 char* ipv4_prefix_to_mask(void *pool, unsigned prefix);
+char* ipv6_prefix_to_mask(char buf[MAX_IP_STR], unsigned prefix);
 inline static int valid_ipv6_prefix(unsigned prefix)
 {
-	switch (prefix) {
-		case 16:
-		case 32:
-		case 48:
-		case 64:
-		case 80:
-		case 96:
-		case 112:
-		case 128:
-			return 1;
-		default:
-			return 0;
-	}
+	if (prefix > 10 && prefix <= 128)
+		return 1;
+	else
+		return 0;
 }
 
 typedef size_t (*pack_func)(const void*, uint8_t *);
@@ -77,11 +70,12 @@ int send_socket_msg(void *pool, int fd, uint8_t cmd,
 		    int socketfd,
 		    const void* msg, pack_size_func get_size, pack_func pack);
 
+/* the timeout is in seconds */
 int recv_msg(void *pool, int fd, uint8_t cmd, 
-	     void** msg, unpack_func);
+	     void** msg, unpack_func, unsigned timeout);
 
 int recv_socket_msg(void *pool, int fd, uint8_t cmd, 
-			int *socketfd, void** msg, unpack_func);
+			int *socketfd, void** msg, unpack_func, unsigned timeout);
 
 const char* cmd_request_to_str(unsigned cmd);
 

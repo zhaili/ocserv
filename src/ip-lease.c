@@ -303,42 +303,6 @@ fail:
 	return ret;
 }
 
-/* returns an allocated string with the mask to apply for the prefix
- */
-static
-char* ipv6_prefix_to_mask(char buf[MAX_IP_STR], unsigned prefix)
-{
-	switch (prefix) {
-		case 16:
-			strlcpy(buf, "ffff::", MAX_IP_STR);
-			break;
-		case 32:
-			strlcpy(buf, "ffff:ffff::", MAX_IP_STR);
-			break;
-		case 48:
-			strlcpy(buf, "ffff:ffff:ffff::", MAX_IP_STR);
-			break;
-		case 64:
-			strlcpy(buf, "ffff:ffff:ffff:ffff::", MAX_IP_STR);
-			break;
-		case 80:
-			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff::", MAX_IP_STR);
-			break;
-		case 96:
-			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff:ffff::", MAX_IP_STR);
-			break;
-		case 112:
-			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff:ffff:ffff::", MAX_IP_STR);
-			break;
-		case 128:
-			strlcpy(buf, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", MAX_IP_STR);
-			break;
-		default:
-			return NULL;
-	}
-	return buf;
-}
-
 static
 int get_ipv6_lease(main_server_st* s, struct proc_st* proc)
 {
@@ -423,6 +387,12 @@ int get_ipv6_lease(main_server_st* s, struct proc_st* proc)
 			goto fail;
 		}
 
+		if (s->config->network.ipv6_prefix) {
+			proc->ipv6->prefix = s->config->network.ipv6_prefix;
+		} else {
+			proc->ipv6->prefix = 127;
+		}
+
 		return 0;
 	}
 
@@ -472,15 +442,14 @@ int get_ipv6_lease(main_server_st* s, struct proc_st* proc)
 
        		proc->ipv6->rip_len = sizeof(struct sockaddr_in6);
        		memcpy(&proc->ipv6->rip, &rnd, proc->ipv6->rip_len);
+		SA_IN6_U8_P(&proc->ipv6->rip)[15] &= 0xfe;
 
-		/* LIP = network address + 1 */
-		memcpy(&proc->ipv6->lip, &network, sizeof(struct sockaddr_in6));
+		proc->ipv6->prefix = 127;
+
+		/* LIP = RIP + 1 */
+		memcpy(&proc->ipv6->lip, &proc->ipv6->rip, sizeof(struct sockaddr_in6));
 		proc->ipv6->lip_len = sizeof(struct sockaddr_in6);
 		SA_IN6_U8_P(&proc->ipv6->lip)[15] |= 1;
-
-		if (memcmp(SA_IN6_U8_P(&proc->ipv6->lip), SA_IN6_U8_P(&proc->ipv6->rip), sizeof(struct in6_addr)) == 0) {
-			continue;
-		}
 
 		mslog(s, proc, LOG_DEBUG, "selected IP: %s",
 		      human_addr((void*)&proc->ipv6->rip, proc->ipv6->rip_len, buf, sizeof(buf)));

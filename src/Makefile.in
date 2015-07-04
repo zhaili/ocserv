@@ -94,12 +94,6 @@ sbin_PROGRAMS = ocserv$(EXEEXT)
 @PCL_FALSE@am__append_7 = pcl/libpcl.a
 @PCL_FALSE@am__append_8 = pcl
 @PCL_FALSE@am__append_9 = -I$(srcdir)/pcl/
-@HAVE_DBUS_TRUE@am__append_10 = main-ctl-dbus.c
-@HAVE_DBUS_TRUE@am__append_11 = occtl-dbus.c
-@HAVE_DBUS_TRUE@am__append_12 = $(LIBDBUS_LIBS)
-@HAVE_DBUS_TRUE@am__append_13 = $(LIBDBUS_LIBS)
-@HAVE_DBUS_FALSE@am__append_14 = main-ctl-unix.c
-@HAVE_DBUS_FALSE@am__append_15 = occtl-unix.c
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/version.inc.in $(top_srcdir)/build-aux/depcomp TODO
@@ -176,9 +170,9 @@ am__occtl_SOURCES_DIST = occtl.c occtl-pager.c occtl.h occtl-time.c \
 	ccan/list/list.c ccan/list/list.h ccan/talloc/talloc.c \
 	ccan/talloc/talloc.h ccan/compiler/compiler.h \
 	ccan/typesafe_cb/typesafe_cb.h common.c common.h system.c \
-	system.h setproctitle.c setproctitle.h \
-	protobuf/protobuf-c/protobuf-c.h \
-	protobuf/protobuf-c/protobuf-c.c occtl-dbus.c occtl-unix.c
+	system.h setproctitle.c setproctitle.h occtl-print.c \
+	common-json.c common-json.h protobuf/protobuf-c/protobuf-c.h \
+	protobuf/protobuf-c/protobuf-c.c occtl-unix.c
 am__dirstamp = $(am__leading_dot)dirstamp
 @LOCAL_TALLOC_TRUE@am__objects_1 = ccan/talloc/talloc.$(OBJEXT)
 am__objects_2 = ccan/hash/hash.$(OBJEXT) ccan/htable/htable.$(OBJEXT) \
@@ -187,43 +181,41 @@ am__objects_3 = common.$(OBJEXT) system.$(OBJEXT) \
 	setproctitle.$(OBJEXT)
 @LOCAL_PROTOBUF_C_TRUE@am__objects_4 = protobuf/protobuf-c/protobuf-c.$(OBJEXT)
 am__objects_5 = $(am__objects_4)
-@HAVE_DBUS_TRUE@am__objects_6 = occtl-dbus.$(OBJEXT)
-@HAVE_DBUS_FALSE@am__objects_7 = occtl-unix.$(OBJEXT)
 am_occtl_OBJECTS = occtl.$(OBJEXT) occtl-pager.$(OBJEXT) \
 	occtl-time.$(OBJEXT) occtl-cache.$(OBJEXT) \
 	occtl-ip-cache.$(OBJEXT) occtl-nl.$(OBJEXT) ctl.pb-c.$(OBJEXT) \
-	$(am__objects_2) $(am__objects_3) $(am__objects_5) \
-	$(am__objects_6) $(am__objects_7)
+	$(am__objects_2) $(am__objects_3) occtl-print.$(OBJEXT) \
+	common-json.$(OBJEXT) $(am__objects_5) occtl-unix.$(OBJEXT)
 occtl_OBJECTS = $(am_occtl_OBJECTS)
 am__DEPENDENCIES_1 =
-@HAVE_DBUS_TRUE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
 occtl_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_2)
+	$(am__DEPENDENCIES_1)
 am_ocpasswd_OBJECTS = ocpasswd.$(OBJEXT)
 ocpasswd_OBJECTS = $(am_ocpasswd_OBJECTS)
-@NEED_LIBOPTS_FALSE@am__DEPENDENCIES_3 = $(am__DEPENDENCIES_1)
-@NEED_LIBOPTS_TRUE@am__DEPENDENCIES_3 = ../libopts/libopts.a
-ocpasswd_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_3) \
+@NEED_LIBOPTS_FALSE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
+@NEED_LIBOPTS_TRUE@am__DEPENDENCIES_2 = ../libopts/libopts.a
+ocpasswd_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_2) \
 	libcmd-ocpasswd.a $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am__ocserv_SOURCES_DIST = main.c main-auth.c worker-vpn.c \
 	worker-auth.c tlslib.c cookies.c main-misc.c ip-lease.c \
-	ip-lease.h vpn.h cookies.h tlslib.h log.c tun.c tun.h config.c \
-	worker-resume.c worker.h main-resume.c main.h worker-extras.c \
-	html.c html.h worker-http.c main-user.c worker-misc.c \
-	route-add.c route-add.h worker-privs.c sec-mod.c sec-mod-db.c \
-	sec-mod-auth.c sec-mod-auth.h sec-mod.h script-list.h common.c \
-	common.h system.c system.h setproctitle.c setproctitle.h \
-	auth/pam.c auth/pam.h auth/plain.c auth/plain.h auth/radius.c \
-	auth/radius.h auth/common.c auth/common.h auth/gssapi.h \
-	auth/gssapi.c acct/pam.c acct/pam.h acct/radius.c \
+	ip-lease.h vpn.h cookies.h tlslib.h log.c tun.c tun.h \
+	config-kkdcp.c config.c worker-resume.c worker.h main-resume.c \
+	main.h worker-extras.c html.c html.h worker-http.c main-user.c \
+	worker-misc.c route-add.c route-add.h worker-privs.c sec-mod.c \
+	sec-mod-db.c sec-mod-auth.c sec-mod-auth.h sec-mod.h \
+	script-list.h common.c common.h system.c system.h \
+	setproctitle.c setproctitle.h auth/pam.c auth/pam.h \
+	auth/plain.c auth/plain.h auth/radius.c auth/radius.h \
+	auth/common.c auth/common.h auth/gssapi.h auth/gssapi.c \
+	auth-unix.c auth-unix.h acct/pam.c acct/pam.h acct/radius.c \
 	acct/radius.h icmp-ping.c icmp-ping.h worker-kkdcp.c \
 	subconfig.c sec-mod-sup-config.c sec-mod-sup-config.h \
 	sup-config/file.c sup-config/file.h main-sec-mod-cmd.c \
 	sup-config/radius.c sup-config/radius.h worker-bandwidth.c \
 	worker-bandwidth.h ctl.h main-ctl.h vasprintf.c vasprintf.h \
-	cfg.h proc-search.c proc-search.h http-heads.h main-ban.c \
-	main-ban.h str.c str.h gettime.h \
+	proc-search.c proc-search.h http-heads.h main-ban.c main-ban.h \
+	common-config.h str.c str.h gettime.h \
 	ccan/build_assert/build_assert.h ccan/check_type/check_type.h \
 	ccan/container_of/container_of.h ccan/hash/hash.c \
 	ccan/hash/hash.h ccan/htable/htable.c ccan/htable/htable.h \
@@ -234,47 +226,44 @@ am__ocserv_SOURCES_DIST = main.c main-auth.c worker-vpn.c \
 	protobuf/protobuf-c/protobuf-c.h \
 	protobuf/protobuf-c/protobuf-c.c sec-mod-acct.h lzs.c lzs.h \
 	kkdcp_asn1_tab.c kkdcp.asn ipc.pb-c.h ipc.pb-c.c ctl.pb-c.c \
-	ctl.pb-c.h main-ctl-dbus.c main-ctl-unix.c
-am__objects_8 = auth/pam.$(OBJEXT) auth/plain.$(OBJEXT) \
+	ctl.pb-c.h main-ctl-unix.c
+am__objects_6 = auth/pam.$(OBJEXT) auth/plain.$(OBJEXT) \
 	auth/radius.$(OBJEXT) auth/common.$(OBJEXT) \
-	auth/gssapi.$(OBJEXT)
-am__objects_9 = acct/pam.$(OBJEXT) acct/radius.$(OBJEXT)
-@LOCAL_HTTP_PARSER_TRUE@am__objects_10 =  \
+	auth/gssapi.$(OBJEXT) auth-unix.$(OBJEXT)
+am__objects_7 = acct/pam.$(OBJEXT) acct/radius.$(OBJEXT)
+@LOCAL_HTTP_PARSER_TRUE@am__objects_8 =  \
 @LOCAL_HTTP_PARSER_TRUE@	http-parser/http_parser.$(OBJEXT)
-@ENABLE_COMPRESSION_TRUE@am__objects_11 = lzs.$(OBJEXT)
-@HAVE_GSSAPI_TRUE@am__objects_12 = kkdcp_asn1_tab.$(OBJEXT)
-@HAVE_DBUS_TRUE@am__objects_13 = main-ctl-dbus.$(OBJEXT)
-@HAVE_DBUS_FALSE@am__objects_14 = main-ctl-unix.$(OBJEXT)
+@ENABLE_COMPRESSION_TRUE@am__objects_9 = lzs.$(OBJEXT)
+@HAVE_GSSAPI_TRUE@am__objects_10 = kkdcp_asn1_tab.$(OBJEXT)
 am_ocserv_OBJECTS = main.$(OBJEXT) main-auth.$(OBJEXT) \
 	worker-vpn.$(OBJEXT) worker-auth.$(OBJEXT) tlslib.$(OBJEXT) \
 	cookies.$(OBJEXT) main-misc.$(OBJEXT) ip-lease.$(OBJEXT) \
-	log.$(OBJEXT) tun.$(OBJEXT) config.$(OBJEXT) \
-	worker-resume.$(OBJEXT) main-resume.$(OBJEXT) \
+	log.$(OBJEXT) tun.$(OBJEXT) config-kkdcp.$(OBJEXT) \
+	config.$(OBJEXT) worker-resume.$(OBJEXT) main-resume.$(OBJEXT) \
 	worker-extras.$(OBJEXT) html.$(OBJEXT) worker-http.$(OBJEXT) \
 	main-user.$(OBJEXT) worker-misc.$(OBJEXT) route-add.$(OBJEXT) \
 	worker-privs.$(OBJEXT) sec-mod.$(OBJEXT) sec-mod-db.$(OBJEXT) \
-	sec-mod-auth.$(OBJEXT) $(am__objects_3) $(am__objects_8) \
-	$(am__objects_9) icmp-ping.$(OBJEXT) worker-kkdcp.$(OBJEXT) \
+	sec-mod-auth.$(OBJEXT) $(am__objects_3) $(am__objects_6) \
+	$(am__objects_7) icmp-ping.$(OBJEXT) worker-kkdcp.$(OBJEXT) \
 	subconfig.$(OBJEXT) sec-mod-sup-config.$(OBJEXT) \
 	sup-config/file.$(OBJEXT) main-sec-mod-cmd.$(OBJEXT) \
 	sup-config/radius.$(OBJEXT) worker-bandwidth.$(OBJEXT) \
 	vasprintf.$(OBJEXT) proc-search.$(OBJEXT) main-ban.$(OBJEXT) \
-	str.$(OBJEXT) $(am__objects_2) $(am__objects_10) \
-	$(am__objects_5) $(am__objects_11) $(am__objects_12) \
-	ipc.pb-c.$(OBJEXT) ctl.pb-c.$(OBJEXT) $(am__objects_13) \
-	$(am__objects_14)
+	str.$(OBJEXT) $(am__objects_2) $(am__objects_8) \
+	$(am__objects_5) $(am__objects_9) $(am__objects_10) \
+	ipc.pb-c.$(OBJEXT) ctl.pb-c.$(OBJEXT) main-ctl-unix.$(OBJEXT)
 ocserv_OBJECTS = $(am_ocserv_OBJECTS)
-@LOCAL_HTTP_PARSER_FALSE@am__DEPENDENCIES_4 = $(am__DEPENDENCIES_1)
-@PCL_TRUE@am__DEPENDENCIES_5 = $(am__DEPENDENCIES_1)
-ocserv_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_3) \
+@LOCAL_HTTP_PARSER_FALSE@am__DEPENDENCIES_3 = $(am__DEPENDENCIES_1)
+@PCL_TRUE@am__DEPENDENCIES_4 = $(am__DEPENDENCIES_1)
+ocserv_DEPENDENCIES = ../gl/libgnu.a $(am__DEPENDENCIES_2) \
 	libcmd-ocserv.a $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_4) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_3) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_5) $(am__append_7) $(am__DEPENDENCIES_2)
+	$(am__DEPENDENCIES_4) $(am__append_7)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -398,7 +387,6 @@ CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
-DBUS_CONFIG_DIR = @DBUS_CONFIG_DIR@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
@@ -413,8 +401,6 @@ EOVERFLOW_HIDDEN = @EOVERFLOW_HIDDEN@
 EOVERFLOW_VALUE = @EOVERFLOW_VALUE@
 ERRNO_H = @ERRNO_H@
 EXEEXT = @EXEEXT@
-FREERADIUS_CLIENT_CFLAGS = @FREERADIUS_CLIENT_CFLAGS@
-FREERADIUS_CLIENT_LIBS = @FREERADIUS_CLIENT_LIBS@
 GNULIB_ATOLL = @GNULIB_ATOLL@
 GNULIB_CALLOC_POSIX = @GNULIB_CALLOC_POSIX@
 GNULIB_CANONICALIZE_FILE_NAME = @GNULIB_CANONICALIZE_FILE_NAME@
@@ -781,8 +767,6 @@ LIBC = @LIBC@
 LIBCRYPT = @LIBCRYPT@
 LIBCRYPT_PREFIX = @LIBCRYPT_PREFIX@
 LIBC_PREFIX = @LIBC_PREFIX@
-LIBDBUS_CFLAGS = @LIBDBUS_CFLAGS@
-LIBDBUS_LIBS = @LIBDBUS_LIBS@
 LIBGNUTLS_CFLAGS = @LIBGNUTLS_CFLAGS@
 LIBGNUTLS_LIBS = @LIBGNUTLS_LIBS@
 LIBGNU_LIBDEPS = @LIBGNU_LIBDEPS@
@@ -879,6 +863,8 @@ PRAGMA_COLUMNS = @PRAGMA_COLUMNS@
 PRAGMA_SYSTEM_HEADER = @PRAGMA_SYSTEM_HEADER@
 PTHREAD_H_DEFINES_STRUCT_TIMESPEC = @PTHREAD_H_DEFINES_STRUCT_TIMESPEC@
 PTRDIFF_T_SUFFIX = @PTRDIFF_T_SUFFIX@
+RADCLI_CFLAGS = @RADCLI_CFLAGS@
+RADCLI_LIBS = @RADCLI_LIBS@
 RANLIB = @RANLIB@
 REPLACE_CALLOC = @REPLACE_CALLOC@
 REPLACE_CANONICALIZE_FILE_NAME = @REPLACE_CANONICALIZE_FILE_NAME@
@@ -1072,8 +1058,8 @@ AM_CPPFLAGS = -I$(srcdir)/../gl/ -I$(builddir)/../gl/ -I$(srcdir)/ \
 	-I$(builddir)/../ $(LIBOPTS_CFLAGS) $(LIBGNUTLS_CFLAGS) \
 	$(LIBPROTOBUF_C_CFLAGS) $(LIBLZ4_CFLAGS) $(LIBNL3_CFLAGS) \
 	$(LIBREADLINE_CFLAGS) $(LIBTALLOC_CFLAGS) $(LIBDBUS_CFLAGS) \
-	$(LIBKRB5_CFLAGS) $(LIBTASN1_CFLAGS) $(am__append_1) \
-	$(am__append_9)
+	$(LIBKRB5_CFLAGS) $(LIBTASN1_CFLAGS) $(RADCLI_CFLAGS) \
+	$(am__append_1) $(am__append_9)
 BUILT_SOURCES = ocpasswd-args.c ocpasswd-args.h \
 	ocserv-args.c ocserv-args.h ipc.pb-c.c ipc.pb-c.h \
 	ctl.pb-c.c ctl.pb-c.h http-heads.h kkdcp_asn1_tab.c
@@ -1101,44 +1087,45 @@ COMMON_SOURCES = common.c common.h system.c system.h setproctitle.c setproctitle
 
 # Authentication module sources
 AUTH_SOURCES = auth/pam.c auth/pam.h auth/plain.c auth/plain.h auth/radius.c auth/radius.h \
-	auth/common.c auth/common.h auth/gssapi.h auth/gssapi.c
+	auth/common.c auth/common.h auth/gssapi.h auth/gssapi.c auth-unix.c \
+	auth-unix.h
 
 ACCT_SOURCES = acct/pam.c acct/pam.h acct/radius.c acct/radius.h
 ocserv_SOURCES = main.c main-auth.c worker-vpn.c worker-auth.c \
 	tlslib.c cookies.c main-misc.c ip-lease.c ip-lease.h vpn.h \
-	cookies.h tlslib.h log.c tun.c tun.h config.c worker-resume.c \
-	worker.h main-resume.c main.h worker-extras.c html.c html.h \
-	worker-http.c main-user.c worker-misc.c route-add.c \
-	route-add.h worker-privs.c sec-mod.c sec-mod-db.c \
+	cookies.h tlslib.h log.c tun.c tun.h config-kkdcp.c config.c \
+	worker-resume.c worker.h main-resume.c main.h worker-extras.c \
+	html.c html.h worker-http.c main-user.c worker-misc.c \
+	route-add.c route-add.h worker-privs.c sec-mod.c sec-mod-db.c \
 	sec-mod-auth.c sec-mod-auth.h sec-mod.h script-list.h \
 	$(COMMON_SOURCES) $(AUTH_SOURCES) $(ACCT_SOURCES) icmp-ping.c \
 	icmp-ping.h worker-kkdcp.c subconfig.c sec-mod-sup-config.c \
 	sec-mod-sup-config.h sup-config/file.c sup-config/file.h \
 	main-sec-mod-cmd.c sup-config/radius.c sup-config/radius.h \
 	worker-bandwidth.c worker-bandwidth.h ctl.h main-ctl.h \
-	vasprintf.c vasprintf.h cfg.h proc-search.c proc-search.h \
-	http-heads.h main-ban.c main-ban.h str.c str.h gettime.h \
-	$(CCAN_SOURCES) $(HTTP_PARSER_SOURCES) $(PROTOBUF_SOURCES) \
-	sec-mod-acct.h $(am__append_4) $(am__append_5) ipc.pb-c.h \
-	ipc.pb-c.c ctl.pb-c.c ctl.pb-c.h $(am__append_10) \
-	$(am__append_14)
+	vasprintf.c vasprintf.h proc-search.c proc-search.h \
+	http-heads.h main-ban.c main-ban.h common-config.h str.c str.h \
+	gettime.h $(CCAN_SOURCES) $(HTTP_PARSER_SOURCES) \
+	$(PROTOBUF_SOURCES) sec-mod-acct.h $(am__append_4) \
+	$(am__append_5) ipc.pb-c.h ipc.pb-c.c ctl.pb-c.c ctl.pb-c.h \
+	main-ctl-unix.c
 ocserv_LDADD = ../gl/libgnu.a $(NEEDED_LIBOPTS) libcmd-ocserv.a \
 	$(LIBGNUTLS_LIBS) $(PAM_LIBS) $(LIBUTIL) $(LIBSECCOMP) \
 	$(LIBWRAP) $(LIBCRYPT) $(NEEDED_HTTP_PARSER_LIBS) \
 	$(LIBPROTOBUF_C_LIBS) $(LIBSYSTEMD) $(LIBTALLOC_LIBS) \
-	$(FREERADIUS_CLIENT_LIBS) $(LIBLZ4_LIBS) $(LIBKRB5_LIBS) \
-	$(LIBTASN1_LIBS) $(am__append_6) $(am__append_7) \
-	$(am__append_12)
+	$(RADCLI_LIBS) $(LIBLZ4_LIBS) $(LIBKRB5_LIBS) $(LIBTASN1_LIBS) \
+	$(am__append_6) $(am__append_7)
 libcmd_ocpasswd_a_SOURCES = ocpasswd-args.def ocpasswd-args.c ocpasswd-args.h
 ocpasswd_SOURCES = ocpasswd.c
 ocpasswd_LDADD = ../gl/libgnu.a $(NEEDED_LIBOPTS) libcmd-ocpasswd.a \
 	$(LIBGNUTLS_LIBS) $(LIBCRYPT)
 occtl_SOURCES = occtl.c occtl-pager.c occtl.h occtl-time.c \
 	occtl-cache.c occtl-ip-cache.c occtl-nl.c ctl.h ctl.pb-c.c \
-	ctl.pb-c.h $(CCAN_SOURCES) $(COMMON_SOURCES) \
-	$(PROTOBUF_SOURCES) $(am__append_11) $(am__append_15)
-occtl_LDADD = ../gl/libgnu.a $(LIBREADLINE_LIBS) $(LIBNL3_LIBS) \
-	$(LIBPROTOBUF_C_LIBS) $(LIBTALLOC_LIBS) $(am__append_13)
+	ctl.pb-c.h $(CCAN_SOURCES) $(COMMON_SOURCES) occtl-print.c \
+	common-json.c common-json.h $(PROTOBUF_SOURCES) occtl-unix.c
+occtl_LDADD = ../gl/libgnu.a $(LIBREADLINE_LIBS) \
+	$(LIBNL3_LIBS) $(LIBPROTOBUF_C_LIBS) $(LIBTALLOC_LIBS)
+
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -1386,7 +1373,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth-unix.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common-json.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config-kkdcp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/config.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cookies.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ctl.pb-c.Po@am__quote@
@@ -1399,7 +1389,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lzs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-auth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-ban.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-ctl-dbus.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-ctl-unix.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-misc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-resume.Po@am__quote@
@@ -1407,10 +1396,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main-user.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-cache.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-dbus.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-ip-cache.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-nl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-pager.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-print.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-time.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl-unix.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/occtl.Po@am__quote@
