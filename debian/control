@@ -5,6 +5,10 @@ Maintainer: unknown <anonymous@dev64.stacklet.com>
 Build-Depends: 
 	debhelper (>= 8.0.0), 
 	autotools-dev,
+	libhttp-parser-dev,
+	libpcl1-dev,
+	libwrap0-dev,
+	libtalloc-dev,
 	libgnutls28-dev,
 	libreadline-dev,
 	pkg-config,
